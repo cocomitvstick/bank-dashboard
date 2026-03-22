@@ -1,7 +1,7 @@
 """
 FastAPI сервер — аналитический дашборд Примсоцбанка.
 Запуск: python main.py
-Документация API: http://localhost:10000/docs
+Документация API: http://localhost:8080/docs
 """
 # ---------------------------------------------------------------------------
 # Логирование — ДО любых импортов, чтобы поймать ошибки импорта
@@ -2134,7 +2134,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=10000)
+    parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
     logger.info("Запуск uvicorn на %s:%s ...", args.host, args.port)
     try:

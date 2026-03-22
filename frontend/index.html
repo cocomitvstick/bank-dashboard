@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ПСБ Analytics — Аналитика банковского сектора РФ</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <!-- Adapter для Chart.js + даты -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══════════════ HEADER ══════════════ -->
+  <header class="header">
+    <div class="logo">ПСБ<span>/ Аналитика банковского сектора РФ</span></div>
+
+    <div class="status-badge" id="statusBadge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Загрузка...</span>
+    </div>
+
+    <div class="status-badge" style="margin-left:8px;opacity:.75" title="Количество банков загруженных из реестра ЦБ РФ">
+      <span id="bankCountBadge">— банков</span>
+    </div>
+
+    <div class="header-tabs">
+      <button class="header-tab active" id="tabAnalytics" onclick="switchTab('analytics')">Аналитика</button>
+      <button class="header-tab" id="tabMarket" onclick="switchTab('market')">Ставки и курсы ЦБ</button>
+      <button class="header-tab" id="tabMoex" onclick="switchTab('moex')">Биржа MOEX</button>
+      <button class="header-tab" id="tabCalc" onclick="switchTab('calculators')">Калькуляторы</button>
+      <button class="header-tab" id="tabSoap" onclick="switchTab('soap')">SOAP-лог</button>
+      <button class="header-tab" id="tabRef" onclick="switchTab('reference')">Справочник</button>
+      <button class="header-tab" id="tabHelp" onclick="switchTab('help')">❓ Инструкция</button>
+    </div>
+
+    <button class="btn btn-ghost" id="btnSettings" title="Настройки подключения (прокси, VPN)">
+      ⚙ Настройки
+    </button>
+
+    <div class="header-spacer"></div>
+
+    <button class="btn btn-ghost" id="btnExport" title="Экспорт таблицы в CSV">
+      ↓ CSV
+    </button>
+    <button class="btn btn-ghost btn-danger" id="btnClearCache" title="Удалить весь кэш на сервере и перезагрузить данные с нуля">
+      🗑 Сброс кэша
+    </button>
+    <button class="btn btn-primary" id="btnRefresh" title="Загрузить свежие данные с ЦБ">
+      ⟳ Обновить данные
+    </button>
+  </header>
+
+  <!-- ══════════════ CONTROLS ══════════════ -->
+  <section class="controls" id="controls">
+
+    <!-- Показатель -->
+    <div class="control-group">
+      <span class="control-label">Показатель</span>
+      <select id="selMetric">
+        <optgroup label="── Масштаб и структура (Банки.ру) ──">
+          <option value="assets">Активы нетто (Банки.ру)</option>
+          <option value="capital">Капитал (Ф123)</option>
+          <option value="liabilities">Обязательства (расч.)</option>
+          <option value="profit">Чистая прибыль (Банки.ру и ЦБ)</option>
+        </optgroup>
+        <optgroup label="── Кредитный портфель (Банки.ру) ──">
+          <option value="loans">Кредитный портфель (Банки.ру)</option>
+          <option value="loans_fl">↳ Кредиты физ. лицам (Банки.ру)</option>
+          <option value="loans_yl">↳ Кредиты юр. лицам (Банки.ру)</option>
+          <option value="npl_abs">↳ Просроченная задолж. (Банки.ру и ЦБ)</option>
+          <option value="npl">↳ NPL, % (Банки.ру и ЦБ)</option>
+          <option value="provisions">↳ Резервы (Ф101)</option>
+          <option value="provisions_rate">↳ Уровень резервирования, % (расч.)</option>
+        </optgroup>
+        <optgroup label="── Альтернатива (ЦБ — формула ИТГАП) ──">
+          <option value="assets_cbr">Активы нетто (ЦБ)</option>
+          <option value="loans_cbr">Кредитный портфель (ЦБ)</option>
+          <option value="loans_fl_cbr">↳ Кредиты физ. лицам (ЦБ)</option>
+          <option value="loans_yl_cbr">↳ Кредиты юр. лицам (ЦБ)</option>
+          <option value="securities_cbr">Вложения в ценные бумаги (ЦБ)</option>
+          <option value="deposits_fl_cbr">Вклады физ. лиц (ЦБ)</option>
+          <option value="deposits_yl_cbr">Средства юр. лиц (ЦБ)</option>
+        </optgroup>
+        <optgroup label="── Вклады ФЛ (Банки.ру) ──">
+          <option value="deposits">Вклады и депозиты</option>
+          <option value="deposits_fl">↳ Вклады физ. лиц (Банки.ру)</option>
+          <option value="deposits_fl_turnover">  ↳ Вклады ФЛ — оборот (Ф101)</option>
+          <option value="deposits_fl_term">  ↳ Срочные вклады ФЛ (Ф101)</option>
+          <option value="dep_522">  ↳ Сберсертификаты ФЛ 522 (Ф101)</option>
+          <option value="dep_408">↳ Текущие счета ФЛ 408 (Ф101)</option>
+          <option value="dep_408_turnover">  ↳ Текущие счета ФЛ — оборот (Ф101)</option>
+        </optgroup>
+        <optgroup label="── Средства ЮЛ и МБК ──">
+          <option value="deposits_yl">Средства юр. лиц (Банки.ру)(Ф101)</option>
+          <option value="deposits_yl_turnover">↳ Средства ЮЛ — оборот (Ф101)</option>
+          <option value="mbk_received">Привлечённые МБК (Банки.ру)(Ф101)</option>
+          <option value="mbk_received_cbr">↳ Привлечённые от ЦБ РФ (Банки.ру)(Ф101)</option>
+          <option value="mbk_received_turnover">↳ Привлечённые МБК — оборот (Ф101)</option>
+          <option value="loro">ЛОРО-счета (Банки.ру)(Ф101)</option>
+          <option value="issued_securities">Выпущенные облигации и векселя (Банки.ру)(Ф101)</option>
+          <option value="issued_bonds">↳ Облигации выпущенные (Банки.ру)(Ф101)</option>
+          <option value="issued_bills">↳ Векселя собственные (Банки.ру)(Ф101)</option>
+        </optgroup>
+        <optgroup label="── Высоколиквидные активы ──">
+          <option value="liquid_assets">Высоколиквидные активы (Банки.ру)(Ф101)</option>
+          <option value="cash">↳ Касса (Ф101)</option>
+          <option value="cash_turnover">  ↳ Касса — оборот (Ф101)</option>
+          <option value="nostro">↳ НОСТРО (Банки.ру)(Ф101)</option>
+          <option value="nostro_turnover">  ↳ НОСТРО — оборот (Ф101)</option>
+          <option value="reserves">↳ Обязательные резервы (Ф101)</option>
+        </optgroup>
+        <optgroup label="── МБК выданные ──">
+          <option value="mbk_given">Выданные МБК (Банки.ру)(Ф101)</option>
+          <option value="mbk_given_turnover">↳ МБК выданные — оборот (Ф101)</option>
+          <option value="mbk_placed_cbr">Размещённые в ЦБ РФ (Банки.ру)(Ф101)</option>
+          <option value="mbk_placed_cbr_turnover">↳ МБК в ЦБ — оборот (Ф101)</option>
+        </optgroup>
+        <optgroup label="── Ценные бумаги ──">
+          <option value="securities">Вложения в ЦБ (Банки.ру)(Ф101)</option>
+          <option value="securities_bonds">↳ Облигации (Банки.ру)(Ф101)</option>
+          <option value="securities_stocks">↳ Акции долевые (Банки.ру)(Ф101)</option>
+          <option value="securities_repo">↳ Бумаги в РЕПО (Ф101)</option>
+          <option value="securities_bills">↳ Векселя полученные (Банки.ру)(Ф101)</option>
+        </optgroup>
+        <optgroup label="── Прочие активы ──">
+          <option value="investments">Вложения в капиталы (Ф101)</option>
+          <option value="fixed_assets_full">ОС и НМА (Банки.ру)(Ф101)</option>
+          <option value="fixed_assets">↳ Основные средства (Ф101)</option>
+          <option value="intangibles">↳ Нематериальные активы (Ф101)</option>
+          <option value="other_assets">Прочие активы (Банки.ру)(Ф101)</option>
+        </optgroup>
+        <optgroup label="── Доходность и риски ──">
+          <option value="interest_income">Процентные доходы (Ф101)</option>
+          <option value="interest_expense">Процентные расходы (Ф101)</option>
+          <option value="roa">ROA (расч.)</option>
+          <option value="roe">ROE (расч.)</option>
+          <option value="nim">NIM (расч.)</option>
+        </optgroup>
+        <optgroup label="── Нормативы ЦБ ──">
+          <option value="n1">Норматив Н1.0 (Банки.ру)(Ф135)</option>
+          <option value="n2">Норматив Н2 (Банки.ру)(Ф135)</option>
+          <option value="n3">Норматив Н3 (Банки.ру)(Ф135)</option>
+          <option value="n4">Норматив Н4 (Банки.ру)(Ф135)</option>
+        </optgroup>
+        <optgroup label="── Пользовательские ──" id="customMetricsGroup">
+          <!-- Заполняется из localStorage -->
+        </optgroup>
+      </select>
+      <button class="btn btn-ghost" id="btnAddCustomMetric"
+              style="font-size:11px;padding:4px 10px;white-space:nowrap"
+              title="Создать свой показатель из балансовых позиций Ф101">
+        + Свой показатель
+      </button>
+    </div>
+
+    <!-- Методология -->
+    <div class="control-group">
+      <span class="control-label">Методика</span>
+      <div class="method-toggle" id="methodToggle">
+        <button class="method-btn active" data-method="banki" title="Методология Банки.ру — нетирование РВПС, включает 522 в вклады ФЛ">Банки.ру</button>
+        <button class="method-btn" data-method="cbr" title="Методология ЦБ РФ — валовые значения, без нетирования, без 522">ЦБ</button>
+      </div>
+    </div>
+
+    <!-- Гранулярность -->
+    <div class="control-group">
+      <span class="control-label">Период</span>
+      <div class="period-tabs" id="periodTabs">
+        <button class="period-tab active" data-p="month">Мес</button>
+        <button class="period-tab" data-p="quarter">Кв</button>
+        <button class="period-tab" data-p="year">Год</button>
+      </div>
+    </div>
+
+    <!-- Дата отчётности -->
+    <div class="control-group">
+      <span class="control-label">На дату</span>
+      <input type="date" id="inpDate" />
+    </div>
+
+    <!-- Диапазон -->
+    <div class="control-group">
+      <span class="control-label">С</span>
+      <input type="date" id="inpDateFrom" value="2020-01-01" />
+      <span class="control-label">По</span>
+      <input type="date" id="inpDateTo" />
+    </div>
+
+    <!-- Группы сравнения -->
+    <div class="control-group" style="flex-wrap:wrap">
+      <span class="control-label">Группы</span>
+      <div class="chips" id="groupChips">
+        <div class="chip psb active" data-g="primsocbank">Примсоцбанк ★</div>
+        <div class="chip active" data-g="top10">ТОП-10</div>
+        <div class="chip" data-g="top20">ТОП-20</div>
+        <div class="chip" data-g="top30">ТОП-30</div>
+        <div class="chip active" data-g="top50">ТОП-50</div>
+        <div class="chip" data-g="top100">ТОП-100</div>
+        <div class="chip" data-g="all">Все банки</div>
+      </div>
+    </div>
+
+    <!-- Регионы -->
+    <div class="control-group" id="regionFilterGroup" style="flex-wrap:wrap">
+      <span class="control-label">Регион</span>
+      <div class="chips" id="regionChips">
+        <span style="color:var(--text-3);font-size:11px;padding:2px 6px">загрузка...</span>
+      </div>
+    </div>
+
+    <!-- Поиск банка -->
+    <div class="control-group">
+      <span class="control-label">Добавить</span>
+      <div class="search-wrap">
+        <input type="text" id="bankSearch" placeholder="Название банка..." style="width:180px" autocomplete="off" />
+        <div class="autocomplete-list" id="autocompleteList"></div>
+      </div>
+    </div>
+
+    <!-- Включая закрытые банки -->
+    <div class="control-group" id="closedBanksGroup" style="align-items:center;gap:8px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-2)">
+        <input type="checkbox" id="chkIncludeClosed" style="cursor:pointer;accent-color:var(--accent)"
+               title="Показывать закрытые банки (с отозванной лицензией), существовавшие в выбранном периоде" />
+        Включая закрытые банки
+      </label>
+      <span id="closedBanksStatus" style="font-size:11px;color:var(--text-3);display:none"></span>
+    </div>
+
+    <!-- Прогресс предзагрузки данных -->
+    <div class="control-group" id="prefetchProgress" style="display:none;align-items:center;gap:8px">
+      <span class="control-label">Загрузка</span>
+      <div style="flex:1;min-width:150px;max-width:250px">
+        <div style="background:var(--bg-2);border-radius:4px;height:6px;overflow:hidden">
+          <div id="prefetchBar" style="background:var(--accent);height:100%;width:0%;transition:width .3s"></div>
+        </div>
+      </div>
+      <span id="prefetchText" style="font-size:11px;color:var(--text-2)">0/0 банков</span>
+      <button id="btnPrefetchStart" class="btn btn-ghost" style="font-size:11px;padding:2px 8px" onclick="startPrefetch()"
+              title="Загрузить данные Form 101 для всех банков за выбранный период">⟳ Прогреть кэш</button>
+      <button id="btnPrefetchStop" class="btn btn-ghost" style="font-size:11px;padding:2px 8px;display:none;color:#e05c5c;border-color:#e05c5c" onclick="stopPrefetch()"
+              title="Остановить загрузку после текущего месяца">⏹ Стоп</button>
+      <button id="btnLoadNormsQuick" class="btn btn-ghost" style="font-size:11px;padding:2px 8px" onclick="startLoadNormsQuick()"
+              title="Загрузить нормативы Н1/Н2/Н3/Н4 для банков у которых они отсутствуют в выбранном диапазоне дат">📋 Нормативы</button>
+      <span id="normsQuickStatus" style="font-size:11px;color:var(--text-2);display:none"></span>
+    </div>
+
+    <!-- Выбранные банки вручную -->
+    <div id="selectedBanks" class="selected-banks" style="width:100%"></div>
+
+    <!-- Состав показателя (декомпозиция) -->
+    <div class="control-group metric-comp-row hidden" id="metricComponentsRow" style="flex-wrap:wrap">
+      <span class="control-label">Состав</span>
+      <div class="metric-comp-list" id="metricComponentsList"></div>
+    </div>
+
+    <!-- Форма 101 — разрез по кодам счетов -->
+    <div class="control-group f101-panel-row hidden" id="f101PanelRow" style="flex-wrap:wrap;align-items:flex-start">
+      <span class="control-label">Ф101 состав</span>
+      <div class="f101-panel-list" id="f101PanelList"></div>
+      <div class="f101-recalc-badge hidden" id="f101RecalcBadge"></div>
+    </div>
+
+    <!-- Описание выбранного показателя -->
+    <div id="metricDesc" class="metric-desc hidden"></div>
+
+  </section>
+
+  <!-- ══════════════ MARKET DATA TAB ══════════════ -->
+  <section id="marketTab" class="market-tab hidden">
+
+    <!-- Верхняя панель управления -->
+    <div class="mkt-controls">
+      <!-- Выбор показателя -->
+      <span class="control-label">Показатель</span>
+      <select id="mktIndicator" class="mkt-select">
+        <optgroup label="── Денежно-кредитная политика ──">
+          <option value="keyrate">🏦 Ключевая ставка ЦБ РФ</option>
+        </optgroup>
+        <optgroup label="── Курсы валют (загрузка…) ──" id="mktCurrGroup">
+          <!-- Заполняется динамически после загрузки снимка -->
+          <option value="USD">💵 Доллар США (USD)</option>
+          <option value="EUR">💶 Евро (EUR)</option>
+          <option value="CNY">🇨🇳 Китайский юань (CNY)</option>
+          <option value="GBP">💷 Фунт стерлингов (GBP)</option>
+        </optgroup>
+        <optgroup label="── Драгоценные металлы ──">
+          <option value="Au">🥇 Золото (Au)</option>
+          <option value="Ag">🥈 Серебро (Ag)</option>
+          <option value="Pt">⚪ Платина (Pt)</option>
+          <option value="Pd">🔘 Палладий (Pd)</option>
+        </optgroup>
+      </select>
+
+      <!-- Диапазон дат -->
+      <span class="control-label" style="margin-left:16px">С</span>
+      <input type="date" id="mktDateFrom" class="inp-date" value="2020-01-01" />
+      <span class="control-label">по</span>
+      <input type="date" id="mktDateTo" class="inp-date" />
+
+      <button class="btn btn-primary" id="mktBtnLoad" style="margin-left:12px;font-size:11px;padding:4px 14px;">
+        ⟳ Загрузить
+      </button>
+    </div>
+
+    <!-- Основная область: текущие значения + динамика -->
+    <div class="mkt-main">
+
+      <!-- Левая панель — снимок актуальных данных -->
+      <div class="mkt-snapshot">
+
+        <!-- Ключевая ставка -->
+        <div class="mkt-snap-card" id="mktSnapKeyRate">
+          <div class="mkt-snap-title">🏦 Ключевая ставка</div>
+          <div class="mkt-snap-value" id="mktKeyRate">—</div>
+          <div class="mkt-snap-sub" id="mktKeyRateDate"></div>
+        </div>
+
+        <!-- Курсы валют -->
+        <div class="mkt-snap-card">
+          <div class="mkt-snap-title">💱 Курсы валют ЦБ (на сегодня)</div>
+          <div id="mktCurrencies" class="mkt-rates-list"></div>
+        </div>
+
+        <!-- Металлы -->
+        <div class="mkt-snap-card">
+          <div class="mkt-snap-title">🥇 Металлы ЦБ РФ (руб/г)</div>
+          <div id="mktMetals" class="mkt-rates-list"></div>
+        </div>
+
+      </div>
+
+      <!-- Правая колонка — графики -->
+      <div class="mkt-charts-col">
+
+        <!-- График показателя (ставки/курсы) -->
+        <div class="mkt-chart-area">
+          <div class="mkt-chart-header">
+            <div class="mkt-chart-title" id="mktChartTitle">Динамика</div>
+            <div class="mkt-chart-sub" id="mktChartSub"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+              <span id="mktDeltaBadge" class="mkt-delta-badge" style="display:none"></span>
+              <button id="mktExportXls" class="ctrl-btn" style="font-size:11px;padding:3px 10px">↓ Excel</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:300px;position:relative">
+            <div class="loading-overlay hidden" id="mktLoading">
+              <div class="spinner"></div>
+            </div>
+            <canvas id="mktHistoryChart"></canvas>
+          </div>
+          <div id="mktChartNote" style="font-size:10px;color:var(--text-3);margin-top:6px"></div>
+        </div>
+
+        <!-- График металлов -->
+        <div class="mkt-metals-chart-area">
+          <!-- Заголовок + фильтры -->
+          <div class="mkt-metals-header">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div class="mkt-chart-title">🪙 Драгоценные металлы ЦБ РФ</div>
+              <span style="font-size:10px;color:var(--text-3);font-weight:400">Учётные цены (₽/г)</span>
+            </div>
+            <div class="mkt-metals-controls">
+              <div class="mkt-metals-filters" id="metalsFilters">
+                <label class="mkt-metal-cb" style="--mc:#ffd700"><input type="checkbox" data-metal="1" checked><span class="mkt-metal-box"></span>Au</label>
+                <label class="mkt-metal-cb" style="--mc:#c0c0c0"><input type="checkbox" data-metal="2" checked><span class="mkt-metal-box"></span>Ag</label>
+                <label class="mkt-metal-cb" style="--mc:#e5e4e2"><input type="checkbox" data-metal="3" checked><span class="mkt-metal-box"></span>Pt</label>
+                <label class="mkt-metal-cb" style="--mc:#b87333"><input type="checkbox" data-metal="4" checked><span class="mkt-metal-box"></span>Pd</label>
+              </div>
+              <div class="mkt-metals-dates">
+                <span class="control-label">С</span>
+                <input type="date" id="metalsDateFrom" class="inp-date" value="2020-01-01" />
+                <span class="control-label">по</span>
+                <input type="date" id="metalsDateTo" class="inp-date" />
+                <button class="ctrl-btn" id="metalsBtnLoad" style="font-size:11px;padding:3px 10px">⟳</button>
+              </div>
+              <button id="mktMetalsExportXls" class="ctrl-btn" style="font-size:11px;padding:3px 10px">↓ Excel</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:280px;position:relative;margin-top:8px;">
+            <div class="loading-overlay hidden" id="mktMetalsLoading">
+              <div class="spinner"></div>
+            </div>
+            <canvas id="metalsChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+  </section>
+
+  <!-- ══════════════ MOEX TAB ══════════════ -->
+  <section id="moexTab" class="market-tab hidden">
+
+    <!-- Верхняя панель: индексы + валюты MOEX -->
+    <div class="moex-top-row">
+
+      <!-- Индексы -->
+      <div class="mkt-snap-card moex-indices-card">
+        <div class="mkt-snap-title">📈 Индексы MOEX (онлайн)</div>
+        <div id="moexIndicesList" class="moex-indices-list">
+          <span class="mkt-no-data">Загрузка...</span>
+        </div>
+      </div>
+
+      <!-- Валюты MOEX -->
+      <div class="mkt-snap-card moex-fx-card">
+        <div class="mkt-snap-title">💱 Валюты на MOEX</div>
+        <div id="moexFxRates" class="moex-fx-list">
+          <span class="mkt-no-data">Загрузка...</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Графики: индекс + акция -->
+    <div class="moex-charts-row">
+
+      <!-- График индекса -->
+      <div class="mkt-chart-area">
+        <div class="mkt-metals-header">
+          <div class="mkt-chart-title" id="moexChartTitle">📊 Индекс МосБиржи (IMOEX)</div>
+          <div class="mkt-metals-controls">
+            <select id="moexIndexSelect" class="mkt-select" style="min-width:200px">
+              <option value="IMOEX">Индекс МосБиржи (IMOEX)</option>
+              <option value="RTSI">Индекс РТС (RTSI)</option>
+              <option value="MOEXOG">Нефть и газ (MOEXOG)</option>
+              <option value="MOEXFN">Финансы (MOEXFN)</option>
+              <option value="MOEXMM">Металлы и добыча (MOEXMM)</option>
+              <option value="MOEXCN">Потребительский (MOEXCN)</option>
+              <option value="MOEXTL">Телеком (MOEXTL)</option>
+              <option value="MOEXEU">Электроэнергетика (MOEXEU)</option>
+              <option value="RGBITR">Гос. облигации (RGBITR)</option>
+            </select>
+            <div class="mkt-metals-dates">
+              <span class="control-label">С</span>
+              <input type="date" id="moexIdxDateFrom" class="inp-date" value="2024-01-01" />
+              <span class="control-label">по</span>
+              <input type="date" id="moexIdxDateTo" class="inp-date" />
+              <button class="ctrl-btn" id="moexIdxBtnLoad" style="font-size:11px;padding:3px 10px">⟳</button>
+            </div>
+            <button id="moexIdxExportXls" class="ctrl-btn" style="font-size:11px;padding:3px 10px">↓ Excel</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:300px;position:relative;margin-top:8px;">
+          <div class="loading-overlay hidden" id="moexIdxLoading"><div class="spinner"></div></div>
+          <canvas id="moexIndexChart"></canvas>
+        </div>
+      </div>
+
+      <!-- График акции -->
+      <div class="mkt-chart-area">
+        <div class="mkt-metals-header">
+          <div class="mkt-chart-title" id="moexStockTitle">📉 Котировки акции</div>
+          <div class="mkt-metals-controls">
+            <div class="search-wrap" style="position:relative">
+              <input type="text" id="moexStockSearch" class="inp-date" style="width:160px;font-size:11px"
+                     placeholder="Тикер (SBER, VTBR...)" autocomplete="off" />
+            </div>
+            <div class="mkt-metals-dates">
+              <span class="control-label">С</span>
+              <input type="date" id="moexStockDateFrom" class="inp-date" value="2024-01-01" />
+              <span class="control-label">по</span>
+              <input type="date" id="moexStockDateTo" class="inp-date" />
+              <button class="ctrl-btn" id="moexStockBtnLoad" style="font-size:11px;padding:3px 10px">⟳</button>
+            </div>
+            <button id="moexStockExportXls" class="ctrl-btn" style="font-size:11px;padding:3px 10px">↓ Excel</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:300px;position:relative;margin-top:8px;">
+          <div class="loading-overlay hidden" id="moexStockLoading"><div class="spinner"></div></div>
+          <canvas id="moexStockChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Второй ряд: металлы + валюты -->
+    <div class="moex-charts-row" style="margin-top:12px">
+
+      <!-- График металлов -->
+      <div class="mkt-chart-area">
+        <div class="mkt-metals-header">
+          <div class="mkt-chart-title">🪙 Металлы — учётные цены ЦБ (руб./г)</div>
+          <div class="mkt-metals-controls">
+            <label class="mkt-metal-cb"><input type="checkbox" id="moexMetalAu" checked><span style="--mc:#FFD700">Au</span></label>
+            <label class="mkt-metal-cb"><input type="checkbox" id="moexMetalAg" checked><span style="--mc:#C0C0C0">Ag</span></label>
+            <label class="mkt-metal-cb"><input type="checkbox" id="moexMetalPt" checked><span style="--mc:#9BAEFF">Pt</span></label>
+            <label class="mkt-metal-cb"><input type="checkbox" id="moexMetalPd" checked><span style="--mc:#DDA0DD">Pd</span></label>
+            <div class="mkt-metals-dates">
+              <span class="control-label">С</span>
+              <input type="date" id="moexMetalDateFrom" class="inp-date" value="2023-01-01" />
+              <span class="control-label">по</span>
+              <input type="date" id="moexMetalDateTo" class="inp-date" />
+              <button class="ctrl-btn" id="moexMetalBtnLoad" style="font-size:11px;padding:3px 10px">⟳</button>
+            </div>
+            <button id="moexMetalExportXls" class="ctrl-btn" style="font-size:11px;padding:3px 10px">↓ Excel</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:280px;position:relative;margin-top:8px;">
+          <div class="loading-overlay hidden" id="moexMetalLoading"><div class="spinner"></div></div>
+          <canvas id="moexMetalChart"></canvas>
+        </div>
+      </div>
+
+      <!-- График валют -->
+      <div class="mkt-chart-area">
+        <div class="mkt-metals-header">
+          <div class="mkt-chart-title" id="moexFxChartTitle">💱 Курс валюты</div>
+          <div class="mkt-metals-controls">
+            <select id="moexFxSelect" class="mkt-select" style="min-width:160px">
+              <option value="CNY">Юань CNY (MOEX)</option>
+              <option value="USD">Доллар USD (ЦБ РФ)</option>
+              <option value="EUR">Евро EUR (ЦБ РФ)</option>
+            </select>
+            <div class="mkt-metals-dates">
+              <span class="control-label">С</span>
+              <input type="date" id="moexFxDateFrom" class="inp-date" value="2023-01-01" />
+              <span class="control-label">по</span>
+              <input type="date" id="moexFxDateTo" class="inp-date" />
+              <button class="ctrl-btn" id="moexFxBtnLoad" style="font-size:11px;padding:3px 10px">⟳</button>
+            </div>
+            <button id="moexFxExportXls" class="ctrl-btn" style="font-size:11px;padding:3px 10px">↓ Excel</button>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:280px;position:relative;margin-top:8px;">
+          <div class="loading-overlay hidden" id="moexFxLoading"><div class="spinner"></div></div>
+          <canvas id="moexFxChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Итоги торгов (дневная сводка) -->
+    <div class="moex-summary-block">
+      <div class="mkt-metals-header">
+        <div class="mkt-chart-title">📋 Итоги торгов</div>
+        <div class="mkt-metals-controls">
+          <select id="moexSummaryInstr" class="mkt-select" style="min-width:200px">
+            <optgroup label="── Валюты ──">
+              <option value="CNY">Юань CNY (MOEX, биржа)</option>
+              <option value="USD">Доллар USD (ЦБ РФ)</option>
+              <option value="EUR">Евро EUR (ЦБ РФ)</option>
+            </optgroup>
+            <optgroup label="── Металлы MOEX (биржа, OHLCV) ──">
+              <option value="GLDRUB_TOM">Золото GLDRUB_TOM (MOEX)</option>
+              <option value="SLVRUB_TOM">Серебро SLVRUB_TOM (MOEX)</option>
+            </optgroup>
+            <optgroup label="── Металлы ЦБ (учётная цена) ──">
+              <option value="Au">Золото Au (ЦБ РФ)</option>
+              <option value="Ag">Серебро Ag (ЦБ РФ)</option>
+              <option value="Pt">Платина Pt (ЦБ РФ)</option>
+              <option value="Pd">Палладий Pd (ЦБ РФ)</option>
+            </optgroup>
+          </select>
+          <input type="date" id="moexSummaryDate" class="inp-date" />
+          <button class="ctrl-btn" id="moexSummaryBtnLoad" style="font-size:11px;padding:3px 10px">Показать</button>
+        </div>
+      </div>
+      <div id="moexSummaryContent" class="moex-summary-grid">
+        <span class="mkt-no-data">Выберите инструмент и нажмите «Показать»</span>
+      </div>
+    </div>
+
+    <!-- Таблица акций -->
+    <div class="mkt-chart-area" style="margin-top:0">
+      <div class="mkt-metals-header">
+        <div class="mkt-chart-title">🏢 Акции — лидеры по обороту</div>
+        <span style="font-size:10px;color:var(--text-3)">Board TQBR, данные в реальном времени</span>
+      </div>
+      <div class="table-wrap" style="max-height:420px;overflow-y:auto;margin-top:8px">
+        <table id="moexStocksTable" class="moex-stocks-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Тикер</th>
+              <th>Название</th>
+              <th style="text-align:right">Цена</th>
+              <th style="text-align:right">Изм. %</th>
+              <th style="text-align:right">Оборот, млн ₽</th>
+            </tr>
+          </thead>
+          <tbody id="moexStocksBody">
+            <tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:20px">Загрузка...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════ KPI BANK SELECTOR ══════════════ -->
+  <div class="kpi-bank-bar">
+    <span class="control-label">КПИ для банка:</span>
+    <div class="search-wrap">
+      <input type="text" id="kpiBankSearch" placeholder="Поиск банка..." autocomplete="off" style="width:180px" />
+      <div class="autocomplete-list" id="kpiBankAutocomplete"></div>
+    </div>
+    <div class="kpi-bank-name" id="kpiBankName">ПАО СКБ Приморья «Примсоцбанк»</div>
+    <button class="btn btn-ghost" id="btnForm101"
+            style="font-size:10px;padding:3px 9px;margin-left:auto;"
+            title="Выгрузить все счета Формы 101 (план счетов 809-П) для выбранного банка">
+      ↓ Ф101 CSV
+    </button>
+  </div>
+
+  <!-- ══════════════ KPI CARDS ══════════════ -->
+  <section class="kpi-row" id="kpiRow">
+    <!-- Активы -->
+    <div class="kpi-card">
+      <div class="kpi-label">Активы</div>
+      <div class="kpi-value mono" id="kpiAssets">—</div>
+      <div class="kpi-unit">млрд ₽</div>
+      <div class="kpi-delta neu" id="kpiAssetsDelta">—</div>
+    </div>
+    <!-- Капитал -->
+    <div class="kpi-card">
+      <div class="kpi-label">Капитал</div>
+      <div class="kpi-value mono" id="kpiCapital">—</div>
+      <div class="kpi-unit">млрд ₽</div>
+      <div class="kpi-delta neu" id="kpiCapitalDelta">—</div>
+    </div>
+    <!-- Прибыль -->
+    <div class="kpi-card">
+      <div class="kpi-label">Прибыль</div>
+      <div class="kpi-value mono" id="kpiProfit">—</div>
+      <div class="kpi-unit">млрд ₽</div>
+      <div class="kpi-delta neu" id="kpiProfitDelta">—</div>
+    </div>
+    <!-- Н1.0 -->
+    <div class="kpi-card">
+      <div class="kpi-label">Норматив Н1.0</div>
+      <div class="kpi-value mono" id="kpiN1">—</div>
+      <div class="kpi-unit">%</div>
+      <div id="kpiN1Badge"></div>
+    </div>
+    <!-- Рейтинг -->
+    <div class="kpi-card">
+      <div class="kpi-label">Место в РФ по активам</div>
+      <div class="kpi-value mono" id="kpiRank">—</div>
+      <div class="kpi-unit" id="kpiRankTotal">из — банков</div>
+      <div class="kpi-delta neu" id="kpiPercentile">—</div>
+    </div>
+  </section>
+
+  <!-- ══════════════ MAIN GRID ══════════════ -->
+  <main class="main-grid">
+
+    <!-- Линейный / столбчатый график -->
+    <div class="chart-card">
+      <div class="chart-toolbar">
+        <div class="card-title" style="margin-bottom:0">Динамика показателя</div>
+        <div style="flex:1"></div>
+        <div class="chart-type-tabs" id="chartTypeTabs">
+          <button class="chart-type-tab active" data-ct="line">Линия</button>
+          <button class="chart-type-tab" data-ct="bar">Бары</button>
+          <button class="chart-type-tab" data-ct="area">Область</button>
+        </div>
+        <button class="chart-type-tab" id="btnGrowthMode"
+                style="border:1px solid var(--border);border-radius:3px;margin-left:6px;"
+                title="Показать динамику в % от начала периода (сравнение темпов роста)">% Δ</button>
+        <button class="chart-type-tab" id="btnAggMode"
+                style="border:1px solid var(--border);border-radius:3px;margin-left:6px;"
+                title="Сейчас: суммарное значение по группе. Нажмите для переключения на среднее">Σ Сумма</button>
+        <button class="btn btn-ghost" id="btnExportXLS"
+                style="font-size:10px;padding:3px 8px;margin-left:8px;"
+                title="Экспорт данных графика в Excel">↓ XLS</button>
+      </div>
+      <div class="chart-wrap">
+        <div class="loading-overlay hidden" id="loadingLine">
+          <div class="spinner"></div>
+        </div>
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Радар-диаграмма -->
+    <div class="chart-card">
+      <div class="card-title">Профиль банка</div>
+      <div class="radar-legend" id="radarLegend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#00d4ff"></div>
+          <span>Примсоцбанк</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:rgba(0,212,255,0.35)"></div>
+          <span>ТОП-10 среднее</span>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="loading-overlay hidden" id="loadingRadar">
+          <div class="spinner"></div>
+        </div>
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Рейтинговая таблица -->
+    <div class="chart-card">
+      <div class="card-title">Рейтинг банков</div>
+      <div class="table-metric-tabs" id="tableMetricTabs">
+        <div class="table-metric-tab active" data-m="assets">Активы</div>
+        <div class="table-metric-tab" data-m="capital">Капитал</div>
+        <div class="table-metric-tab" data-m="profit">Прибыль</div>
+        <div class="table-metric-tab" data-m="n1">Н1.0</div>
+        <div class="table-metric-tab" data-m="npl">NPL</div>
+      </div>
+      <div class="table-wrap">
+        <div class="loading-overlay hidden" id="loadingTable">
+          <div class="spinner"></div>
+        </div>
+        <table id="rankTable">
+          <thead>
+            <tr>
+              <th class="rank-num" data-col="rank">#<span class="sort-icon">↓</span></th>
+              <th data-col="name">Банк<span class="sort-icon"></span></th>
+              <th data-col="value" class="sorted">Значение<span class="sort-icon">↓</span></th>
+              <th data-col="bar">Доля<span class="sort-icon"></span></th>
+              <th data-col="delta">Δ к пред.<span class="sort-icon"></span></th>
+            </tr>
+          </thead>
+          <tbody id="rankTableBody">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-3);padding:20px">Загрузка...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Столбчатое сравнение групп -->
+    <div class="chart-card">
+      <div class="card-title">Сравнение групп</div>
+      <div style="font-size:10px;color:var(--text-3);margin-bottom:8px;line-height:1.5;">
+        Среднее значение выбранного показателя по группам банков на указанную дату.
+        Первая строка — фактическое значение Примсоцбанка.
+        Позволяет оценить, как банк расположен относительно рынка:
+        выше среднего ТОП-50 — сильнее большинства региональных банков.
+      </div>
+      <div class="chart-wrap">
+        <div class="loading-overlay hidden" id="loadingBar">
+          <div class="spinner"></div>
+        </div>
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ══════════════ СПРАВОЧНИК (вкладка) ══════════════ -->
+  <section id="refTab" class="ref-tab hidden">
+  <div class="ref-container">
+
+    <h2 class="ref-page-title">📚 Справочник показателей</h2>
+
+    <!-- Источники данных -->
+    <div class="ref-section">
+      <div class="ref-section-title">Источники данных</div>
+      <div class="ref-table-wrap">
+        <table class="ref-table">
+          <colgroup><col style="width:60px"><col><col style="width:140px"><col></colgroup>
+          <thead><tr><th>Форма</th><th>Официальное название</th><th>SOAP-метод ЦБ</th><th>Что содержит</th></tr></thead>
+          <tbody>
+            <tr><td>Ф101</td><td>Оборотная ведомость по счетам бухгалтерского учёта (809-П)</td><td><code>Data101FNew</code></td><td>Все балансовые счета: остатки + обороты. A_P=1 — активные, A_P=2 — пассивные. Значения в тыс. руб.</td></tr>
+            <tr><td>Ф123</td><td>Расчёт собственных средств (капитала) кредитной организации</td><td><code>Data135FormFull</code></td><td>Капитал банка — собственные средства, поле IITG</td></tr>
+            <tr><td>Ф135</td><td>Информация об обязательных нормативах и других показателях деятельности</td><td><code>Data135FormFull</code></td><td>Нормативы Н1.0, Н2, Н3, Н4 и дополнительные показатели</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="ref-note">Все данные получаются через SOAP-сервис ЦБ РФ: <code>https://www.cbr.ru/CreditInfoWebServ/CreditOrgInfo.asmx</code>. Метод <code>Data101FNew</code> возвращает только агрегированные коды (напр. <code>42.2</code>); разбивка на субсчета (423, 426…) через публичное API недоступна.</div>
+    </div>
+
+    <!-- О методологии Банки.ру -->
+    <div class="ref-section">
+      <div class="ref-section-title">Методология Банки.ру</div>
+      <div class="ref-note">Показатели, помеченные тегом <span class="ref-tag banki">Банки.ру</span>, рассчитываются строго по методологии рейтинга Банки.ру (<a href="https://www.banki.ru/static/bx-fin-rating/pdfs/banki_ratings_methodology_new_202401.pdf" target="_blank" rel="noopener">Методика PDF, редакция с 01.01.2024</a>). Это означает точное совпадение набора счетов и правил объединения с официальной методикой рейтинга.</div>
+      <div class="ref-note" style="margin-top:8px">Показатели <span class="ref-tag calc">расч.</span> — стандартные финансовые коэффициенты (ROA, ROE, NIM, NPL%), которые не описаны в методике Банки.ру, но являются общепринятыми в банковском анализе. Вычисляются из данных нескольких форм.</div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Масштаб и структура -->
+    <div class="ref-section">
+      <div class="ref-section-title">Масштаб и структура</div>
+      <div class="ref-metrics-grid">
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Активы нетто <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">ITGAP(А=1) − 706(А=1) − 106(А=1)</div>
+          <div class="ref-mdesc">Суммарные ресурсы банка: кредиты, ценные бумаги, денежные средства, ОС и прочее. ITGAP — итог активной части баланса по Ф101. Вычитаются финансовый результат (706) и добавочный капитал (106) чтобы не задваивать с Ф123. Главный показатель масштаба банка.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Капитал <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f123">Ф123</span></div>
+          <div class="ref-mformula">Из формы 123, поле IITG (итог собственных средств)</div>
+          <div class="ref-mdesc">Собственные средства (капитал) банка: уставный капитал + нераспределённая прибыль + резервный фонд − убытки. Основа норматива Н1.0 = Капитал / RWA (активы, взвешенные по риску). Минимум по требованию ЦБ — 8%.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Обязательства <span class="ref-tag calc">расч.</span></div>
+          <div class="ref-mformula">Активы нетто − Капитал</div>
+          <div class="ref-mdesc">Суммарные обязательства банка перед вкладчиками, кредиторами и ЦБ РФ. Прямого единого счёта в Ф101 нет — вычисляется как бухгалтерская разница активов и собственных средств.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Чистая прибыль <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">706(А=2) − 706(А=1)</div>
+          <div class="ref-mdesc">Счёт 706 — «Финансовый результат текущего года». Разница кредитового (пассивного) и дебетового (активного) оборота. Положительное = прибыль, отрицательное = убыток. Данные нарастающим итогом с начала года.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Кредитный портфель -->
+    <div class="ref-section">
+      <div class="ref-section-title">Кредитный портфель</div>
+      <div class="ref-metrics-grid">
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Кредитный портфель <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">Кредиты ФЛ + Кредиты ЮЛ + Приобретённые права требования (478)</div>
+          <div class="ref-mdesc">Суммарный кредитный портфель банка — совокупность всех выданных ссуд физическим и юридическим лицам. Агрегат рассчитывается на основе методологии Банки.ру, но сама формула "сумма частей" является нашим расчётом.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Кредиты физ. лицам <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">45.2(А=1) − 45.2(А=2), min 0</div>
+          <div class="ref-mdesc">Глава 45.2 плана счетов 809-П — потребительские кредиты, ипотека, кредитные карты и прочие ссуды физическим лицам. Разница активных и пассивных остатков учитывается только если положительная.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Кредиты юр. лицам <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">Σ(441–451, 45.0, 453–454, 460–470, 472, 47.1): каждая пара (А=1)−(А=2), min 0</div>
+          <div class="ref-mdesc">Кредиты предприятиям, организациям и ИП. Счета 441–451 — кредиты по типам заёмщиков (финансовые организации, коммерческие, НКО и т.д.), 460–470 — кредиты по срокам, 47.1 — прочие размещённые средства.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Просроченная задолженность <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">458(А=1) − 458(А=2), min 0</div>
+          <div class="ref-mdesc">Счёт 458 — «Просроченная задолженность по предоставленным кредитам и прочим размещённым средствам». Включает просрочку по кредитам ФЛ, ЮЛ и ИП. Разница активных и пассивных остатков.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">NPL % <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag calc">расч.</span></div>
+          <div class="ref-mformula">458(нетто) ÷ (КФЛ + КЮЛ + 478(нетто)) × 100</div>
+          <div class="ref-mdesc">Уровень просроченной задолженности в кредитном портфеле по методологии Банки.ру. Числитель — просрочка (сч.458), знаменатель — полный кредитный портфель (ФЛ + ЮЛ + приобретённые права требования 478). Безопасный уровень: до 5–6%.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Резервы <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">45.9(А=2)</div>
+          <div class="ref-mdesc">Счёт 45.9 — «Резервы на возможные потери по кредитам» (РВПС). Пассивный счёт — резервы, созданные банком на случай дефолта заёмщиков. Требуются регулятором (Положение 590-П). Примечание: агрегированный код 45.9 доступен через Data101FNew.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Уровень резервирования <span class="ref-tag calc">расч.</span></div>
+          <div class="ref-mformula">Резервы (45.9) ÷ Кредитный портфель × 100</div>
+          <div class="ref-mdesc">Показывает, какую долю кредитного портфеля банк «застраховал» резервами. Высокое значение (>10%) может говорить об ожидании значительных потерь. Типовые значения — 4–8%. Не является официальным нормативом ЦБ.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Вклады ФЛ -->
+    <div class="ref-section">
+      <div class="ref-section-title">Вклады физических лиц</div>
+      <div class="ref-metrics-grid">
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Вклады физ. лиц <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">42.2(А=2) + 522(А=2)</div>
+          <div class="ref-mdesc">Точная методология Банки.ру: срочные вклады (глава 42.2 = счета 423 резиденты + 426 нерезиденты) плюс сберегательные сертификаты и облигации для физлиц (сч. 522). Текущие счета (408) по методологии Банки.ру в «Вклады ФЛ» НЕ включаются.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Срочные вклады ФЛ <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">423(А=2) + 426(А=2)</div>
+          <div class="ref-mdesc">Счёт 423 — срочные вклады ФЛ-резидентов (рублёвые и валютные), счёт 426 — срочные вклады ФЛ-нерезидентов. Составная часть показателя «Вклады ФЛ» по Банки.ру. Детализация внутри (субсчета по срокам) через публичное API недоступна.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Сберсертификаты ФЛ <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">522(А=2)</div>
+          <div class="ref-mdesc">Счёт 522 — выпущенные сберегательные сертификаты и облигации для физических лиц. У большинства небольших банков этот счёт равен 0. Включается в «Вклады ФЛ» по методологии Банки.ру.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Текущие счета ФЛ <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">408(А=2) — агрегат главы 40817 и 40820</div>
+          <div class="ref-mdesc">Счёт 40817 — текущие/расчётные счета ФЛ-резидентов (дебетовые карты), 40820 — ФЛ-нерезидентов. Выделен отдельно и НЕ входит в «Вклады ФЛ» по методологии Банки.ру. Через Data101FNew возвращается только агрегат «408» без разбивки.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Средства ЮЛ и МБК -->
+    <div class="ref-section">
+      <div class="ref-section-title">Средства юридических лиц и МБК</div>
+      <div class="ref-metrics-grid">
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Средства юр. лиц <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">Счета: 401–407(А=2) + Срочные: 410–422, 42.1, 427–437, 43.1, 439, 521(А=2)</div>
+          <div class="ref-mdesc">Полная методология Банки.ру «Средства предприятий и организаций»: расчётные счета коммерческих организаций (401–407) плюс срочные депозиты всех типов заёмщиков ЮЛ. Счета 401–407 разбиты по формам собственности.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Привлечённые МБК <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">312(А=2) + 31.1(А=2) + 31.2(А=2) + 317(А=2) + 329(А=2)</div>
+          <div class="ref-mdesc">Межбанковские кредиты, привлечённые от других банков и ЦБ РФ. Сч. 312 — кредиты от ЦБ РФ, 31.1/31.2 — МБК от банков-резидентов на разные сроки, 317 — МБК на счета, 329 — прочие привлечённые от ЦБ.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">МБК от ЦБ РФ <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">312(А=2) + 329(А=2)</div>
+          <div class="ref-mdesc">Кредиты рефинансирования и депозиты от Банка России. Счёт 312 — кредиты ЦБ (РЕПО, ломбардные), 329 — прочие привлечённые средства от ЦБ РФ. Индикатор зависимости банка от регулятора.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">ЛОРО-счета <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">301(А=2)</div>
+          <div class="ref-mdesc">Корреспондентские счета других банков, открытые в данном банке (ЛОРО — «их счёт у нас»). Счёт 301 пассивный. Противоположность — НОСТРО (301 А=1) — счёт данного банка в другом банке.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Выпущенные облигации <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">520(А=2)</div>
+          <div class="ref-mdesc">Счёт 520 — выпущенные банком облигации (долговые ценные бумаги). Источник привлечения долгосрочного финансирования. Включается в методологию Банки.ру как отдельный показатель.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Выпущенные векселя <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">523(А=2)</div>
+          <div class="ref-mdesc">Счёт 523 — выпущенные банком векселя. Инструмент краткосрочного привлечения средств. У многих современных банков близок к нулю.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Высоколиквидные активы -->
+    <div class="ref-section">
+      <div class="ref-section-title">Высоколиквидные активы и МБК выданные</div>
+      <div class="ref-metrics-grid">
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Высоколиквидные активы <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">20.0(А=1) + 301(А=1) + 302(А=1)</div>
+          <div class="ref-mdesc">Наиболее ликвидные активы банка: денежные средства в кассе и банкоматах (гл. 20), корреспондентские счета НОСТРО (301), расчёты с ЦБ (302). Используются для выполнения норматива Н2 (мгновенная ликвидность).</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Денежные средства в кассе <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">20.2(А=1) — агрегат кассовых счетов</div>
+          <div class="ref-mdesc">Наличные деньги в кассах, банкоматах и хранилищах банка. Часть высоколиквидных активов. Низкодоходный актив, поэтому банки стараются минимизировать остатки кассы.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Корсчета НОСТРО <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">301(А=1)</div>
+          <div class="ref-mdesc">Корреспондентские счета данного банка в других банках (НОСТРО — «наш счёт у них»). Используются для проведения платежей. Счёт 30102 — корсчёт в ЦБ РФ, основной расчётный счёт банка.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Обязательные резервы <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">30202(А=1) + 30204(А=1)</div>
+          <div class="ref-mdesc">Резервы, депонированные банком в ЦБ РФ в соответствии с нормативами обязательных резервов (НОР). Счёт 30202 — по обязательствам в рублях, 30204 — в иностранной валюте. Замороженные активы, которыми банк не может свободно распоряжаться.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Выданные МБК <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">319(А=1) + max(32.1(А=1)−32.1(А=2), 0) + max(32.2(А=1)−32.2(А=2), 0) + max(324(А=1)−324(А=2), 0) + 329(А=1)</div>
+          <div class="ref-mdesc">Межбанковские кредиты, размещённые в других банках. Счета 32.1 и 32.2 — МБК банкам-резидентам, 324 — МБК банкам-нерезидентам, 319 и 329 — кредиты и депозиты в ЦБ. Разницы считаются только при положительном значении.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">МБК в Банке России <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">319(А=1) + 329(А=1)</div>
+          <div class="ref-mdesc">Средства, размещённые данным банком в ЦБ РФ: обратное РЕПО, депозиты в ЦБ. Счёт 319 — кредиты и депозиты в ЦБ, 329 — прочие размещённые в ЦБ. Высоколиквидные и безрисковые активы.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Ценные бумаги -->
+    <div class="ref-section">
+      <div class="ref-section-title">Вложения в ценные бумаги</div>
+      <div class="ref-metrics-grid">
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Вложения в ценные бумаги <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">Акции + Облигации + Векселя (суммы нетто)</div>
+          <div class="ref-mdesc">Совокупный портфель ценных бумаг банка по методологии Банки.ру: долевые (акции) + долговые (облигации) + векселя сторонних эмитентов. Каждая категория учитывается как разница А=1 и А=2, только положительная.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Облигации <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">Σmax(501−501, 0) + max(502−502, 0) + max(504−504, 0) + max(505−505, 0) — попарно А=1 минус А=2</div>
+          <div class="ref-mdesc">Долговые ценные бумаги в портфеле: 501 — по справедливой стоимости через прибыль/убыток, 502 — оцениваемые по справедливой стоимости через прочий совокупный доход, 504 — удерживаемые до погашения, 505 — прочие.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Акции <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">max(506(А=1)−506(А=2), 0) + max(507(А=1)−507(А=2), 0)</div>
+          <div class="ref-mdesc">Долевые ценные бумаги: 506 — акции и паи, оцениваемые по справедливой стоимости через прибыль/убыток; 507 — акции, оцениваемые через прочий совокупный доход.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Бумаги в РЕПО <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">503(А=1) − 503(А=2), min 0</div>
+          <div class="ref-mdesc">Ценные бумаги, переданные по сделкам РЕПО (с обязательством обратного выкупа). Счёт 503 — долговые бумаги, вовлечённые в РЕПО-сделки. Не входит в методологию Банки.ру.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Векселя полученные <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">max(512−512, 0) + max(513−513, 0) + max(515−515, 0) — попарно А=1 минус А=2</div>
+          <div class="ref-mdesc">Векселя сторонних эмитентов в портфеле банка: 512 — векселя кредитных организаций-резидентов, 513 — векселя организаций-резидентов, 515 — векселя нерезидентов.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Прочие активы и доходность -->
+    <div class="ref-section">
+      <div class="ref-section-title">Прочие активы и Доходность</div>
+      <div class="ref-metrics-grid">
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">ОС и НМА <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">Σmax(604, 608, 609, 610, 619, 621 — каждый А=1 минус А=2, min 0)</div>
+          <div class="ref-mdesc">Основные средства и нематериальные активы: 604 — земля и недвижимость, 608 — оборудование, 609 — прочие ОС, 610 — незавершённые кап. вложения, 619 — НМА, 621 — имущество в аренде. Разница А=1/А=2 = остаточная стоимость.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Прочие активы <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">305 + max(325, 0) + 401 + 403 + 409 + max(459, 0) + 474 + max(477, 0) + max(479, 0) + 526 + max(60.0, 0) + 617 + max(620, 0) — А=1</div>
+          <div class="ref-mdesc">Прочие активы по методологии Банки.ру: незавершённые расчёты (305), требования по получению процентов (474), дебиторская задолженность (60.0), расходы будущих периодов (617) и прочее. Всё, что не вошло в остальные категории активов.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Процентные доходы <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">47425(А=1) — агрегат процентных доходов</div>
+          <div class="ref-mdesc">Доходы от размещения средств в кредиты и ценные бумаги. Оборотный показатель — накапливается с начала года. Примечание: через Data101FNew возвращается агрегированный код.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">Процентные расходы <span class="ref-tag f101">Ф101</span></div>
+          <div class="ref-mformula">47426(А=2) — агрегат процентных расходов</div>
+          <div class="ref-mdesc">Расходы на привлечение средств: выплаченные проценты по вкладам, МБК и выпущенным бумагам. Оборотный показатель нарастающим итогом.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">ROA <span class="ref-tag calc">расч.</span></div>
+          <div class="ref-mformula">Чистая прибыль ÷ Активы нетто × 100</div>
+          <div class="ref-mdesc">Return on Assets — рентабельность активов. Показывает, сколько прибыли генерирует каждый рубль активов. Норма для российских банков: 1–3%. Рассчитывается из данных Ф101. В методологии Банки.ру не описан.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">ROE <span class="ref-tag calc">расч.</span></div>
+          <div class="ref-mformula">Чистая прибыль ÷ Капитал × 100</div>
+          <div class="ref-mdesc">Return on Equity — рентабельность капитала. Показывает доходность для акционеров. Норма: 12–20%. Использует прибыль из Ф101 (сч.706) и капитал из Ф123.</div>
+        </div>
+
+        <div class="ref-metric-card">
+          <div class="ref-mname">NIM <span class="ref-tag calc">расч.</span></div>
+          <div class="ref-mformula">(Процентные доходы − Процентные расходы) ÷ Активы × 100</div>
+          <div class="ref-mdesc">Net Interest Margin — чистая процентная маржа. Основной показатель эффективности процентного бизнеса банка. Норма: 3–5%. Рассчитывается из данных Ф101.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ПОКАЗАТЕЛИ: Нормативы -->
+    <div class="ref-section">
+      <div class="ref-section-title">Обязательные нормативы ЦБ РФ <span class="ref-tag banki">Банки.ру</span> <span class="ref-tag f135">Ф135</span></div>
+      <div class="ref-note">Нормативы берутся напрямую из Формы 135 (Data135FormFull). Расчёт ЦБ РФ — не наш. Источник: Инструкция ЦБ РФ №199-И «Об обязательных нормативах».</div>
+      <div class="ref-norms-grid">
+
+        <div class="ref-norm-card">
+          <div class="ref-norm-name">Н1.0</div>
+          <div class="ref-norm-label">Достаточность капитала</div>
+          <div class="ref-norm-simple">💬 «Подушка безопасности банка»</div>
+          <div class="ref-norm-formula">Капитал ÷ Активы, взвешенные по риску (RWA)</div>
+          <div class="ref-norm-what">Что это значит простыми словами: если банк выдал кредиты на 100 ₽, он должен иметь минимум 8 ₽ собственных денег. Чем выше — тем больше банк может потерять и при этом выжить. Это главный показатель надёжности банка.</div>
+          <div class="ref-norm-zones">
+            <div class="ref-norm-zone danger">❌ &lt; 8% — нарушение норматива, ЦБ вправе отозвать лицензию</div>
+            <div class="ref-norm-zone warn">⚠️ 8–10% — минимально допустимо, работа под надзором ЦБ</div>
+            <div class="ref-norm-zone ok">✅ 10–15% — нормальный уровень для розничного банка</div>
+            <div class="ref-norm-zone good">🟢 &gt; 15% — высокий запас прочности, банк устойчив к шокам</div>
+          </div>
+          <div class="ref-norm-impact">⚡ Влияние на клиента: низкий Н1.0 — первый признак того, что банк «работает на пределе». При резком росте невозвратов кредитов такой банк может обанкротиться. Вклады до 1,4 млн ₽ застрахованы АСВ.</div>
+        </div>
+
+        <div class="ref-norm-card">
+          <div class="ref-norm-name">Н2</div>
+          <div class="ref-norm-label">Мгновенная ликвидность</div>
+          <div class="ref-norm-simple">💬 «Может ли банк выдать деньги прямо сейчас»</div>
+          <div class="ref-norm-formula">Высоколиквидные активы (касса + корсчета) ÷ Обязательства до востребования</div>
+          <div class="ref-norm-what">Что это значит: на каждые 100 ₽ текущих обязательств (деньги на картах, текущих счетах, которые клиенты могут снять сегодня) банк держит минимум 15 ₽ в кассе или на корсчёте ЦБ. Защита от «набега на банк», когда все одновременно хотят снять деньги.</div>
+          <div class="ref-norm-zones">
+            <div class="ref-norm-zone danger">❌ &lt; 15% — нарушение, банк не может расплатиться с клиентами сегодня</div>
+            <div class="ref-norm-zone warn">⚠️ 15–30% — допустимо, но запас небольшой</div>
+            <div class="ref-norm-zone ok">✅ 30–80% — комфортный уровень</div>
+            <div class="ref-norm-zone note">ℹ️ &gt; 100% — банк держит много «мёртвых» денег, доходность страдает</div>
+          </div>
+          <div class="ref-norm-impact">⚡ Влияние на клиента: низкий Н2 означает, что при массовом снятии средств банк может временно остановить выплаты. Именно поэтому ЦБ требует соблюдения этого норматива.</div>
+        </div>
+
+        <div class="ref-norm-card">
+          <div class="ref-norm-name">Н3</div>
+          <div class="ref-norm-label">Текущая ликвидность</div>
+          <div class="ref-norm-simple">💬 «Хватит ли денег на следующий месяц»</div>
+          <div class="ref-norm-formula">Ликвидные активы (до 30 дней) ÷ Обязательства со сроком до 30 дней</div>
+          <div class="ref-norm-what">Что это значит: банк должен иметь достаточно активов, которые можно превратить в деньги за 30 дней, чтобы покрыть не менее половины всех обязательств, которые истекают в ближайший месяц. Более «долгосрочная» версия Н2.</div>
+          <div class="ref-norm-zones">
+            <div class="ref-norm-zone danger">❌ &lt; 50% — нарушение, риск кризиса ликвидности в ближайший месяц</div>
+            <div class="ref-norm-zone warn">⚠️ 50–80% — допустимо, минимальный запас</div>
+            <div class="ref-norm-zone ok">✅ 80–150% — хороший уровень</div>
+            <div class="ref-norm-zone good">🟢 &gt; 150% — очень высокий запас ликвидности</div>
+          </div>
+          <div class="ref-norm-impact">⚡ Влияние на клиента: нарушение Н3 означает, что банк не сможет выполнить все платежи и вернуть вклады, которые истекают в течение месяца.</div>
+        </div>
+
+        <div class="ref-norm-card">
+          <div class="ref-norm-name">Н4</div>
+          <div class="ref-norm-label">Долгосрочная ликвидность</div>
+          <div class="ref-norm-simple">💬 «Не вложил ли банк короткие деньги в длинные кредиты»</div>
+          <div class="ref-norm-formula">Требования со сроком &gt; 1 года ÷ (Капитал + Обязательства со сроком &gt; 1 года)</div>
+          <div class="ref-norm-what">Что это значит: банк не должен выдавать 20-летнюю ипотеку за счёт годовых вкладов. Если все вкладчики заберут деньги через год, а банк выдал их на 20 лет — возникнет кризис. Норматив ограничивает это несоответствие сроков.</div>
+          <div class="ref-norm-zones">
+            <div class="ref-norm-zone danger">❌ &gt; 120% — нарушение, банк чрезмерно «занимает коротко, вкладывает долго»</div>
+            <div class="ref-norm-zone warn">⚠️ 100–120% — допустимо, но под контролем ЦБ</div>
+            <div class="ref-norm-zone ok">✅ 70–100% — нормальный уровень для ипотечного банка</div>
+            <div class="ref-norm-zone good">🟢 &lt; 70% — банк почти не выдаёт долгосрочных кредитов</div>
+          </div>
+          <div class="ref-norm-impact">⚡ Влияние на клиента: высокий Н4 характерен для банков с большим ипотечным портфелем (Сбер, ВТБ). Нарушение сигнализирует о структурном дисбалансе активов и пассивов по срокам.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Справочник кодов Ф101 (перенесён из вкладки Аналитика) -->
+    <div class="ref-section" id="codesRefSection">
+      <div class="ref-section-title">📋 Справочник агрегированных кодов Формы 101</div>
+      <div class="ref-note">
+        Источник: <a href="https://www.cbr.ru/Content/Document/File/158506/101-20240101.pdf" target="_blank" rel="noopener">Положение ЦБ РФ №809-П, Форма 101 «Оборотная ведомость по счетам бухгалтерского учёта»</a>.
+        SOAP-метод <code>Data101FNew</code> возвращает данные только по агрегированным кодам (напр. <code>42.2</code>); разбивка внутри агрегата через публичное API недоступна.
+        Данные в формуле: <em>значения ∈ тыс. руб. (× 10⁶ = млрд ₽)</em>.
+      </div>
+      <div id="codesRefContent"><!-- заполняется из JS --></div>
+    </div>
+
+  <!-- ══════════════ МЕНЕДЖЕР ДАННЫХ ══════════════ -->
+  <div class="ref-section" style="margin-top:24px" id="dataManagerSection">
+    <div class="ref-section-title">🗄 Менеджер данных — контроль полноты и дозагрузка</div>
+
+    <!-- Статус + кнопки действий -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <button class="ctrl-btn" id="btnCheckData" onclick="checkDataCompleteness()">🔍 Проверить полноту данных</button>
+      <button class="ctrl-btn" id="btnLoadNorms" onclick="showLoadNormsDialog()" title="Загрузить нормативы Н1/Н2/Н3/Н4 для банков у которых они отсутствуют">📋 Загрузить нормативы</button>
+      <button class="ctrl-btn" id="btnRetryDemo" onclick="showRetryDemoDialog()" title="Повторить SOAP-запросы для банков с синтетическими данными (увеличенный таймаут 25 сек)">🔄 Повторить для синтетических</button>
+      <span id="dataRepairProgress" style="display:none;font-size:12px;color:var(--text-secondary)"></span>
+    </div>
+
+    <!-- Диалог выбора периода для нормативов -->
+    <div id="loadNormsDialog" style="display:none;background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px">
+      <span style="font-size:13px;margin-right:8px">Период для загрузки нормативов:</span>
+      <input type="date" id="normsDateFrom" class="inp-date" style="font-size:12px" />
+      <span style="margin:0 4px">—</span>
+      <input type="date" id="normsDateTo" class="inp-date" style="font-size:12px" />
+      <button class="ctrl-btn" style="margin-left:8px" onclick="startLoadNorms()">▶ Запустить</button>
+      <button class="ctrl-btn" style="margin-left:4px;opacity:.6" onclick="document.getElementById('loadNormsDialog').style.display='none'">✕</button>
+    </div>
+
+    <!-- Диалог выбора периода для повтора синтетических -->
+    <div id="retryDemoDialog" style="display:none;background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px">
+      <span style="font-size:13px;margin-right:8px">Период для повтора синтетических:</span>
+      <input type="date" id="retryDateFrom" class="inp-date" style="font-size:12px" />
+      <span style="margin:0 4px">—</span>
+      <input type="date" id="retryDateTo" class="inp-date" style="font-size:12px" />
+      <button class="ctrl-btn" style="margin-left:8px" onclick="startRetryDemo()">▶ Запустить</button>
+      <button class="ctrl-btn" style="margin-left:4px;opacity:.6" onclick="document.getElementById('retryDemoDialog').style.display='none'">✕</button>
+    </div>
+
+    <!-- Прогресс-бар операции -->
+    <div id="dataRepairBar" style="display:none;margin-bottom:12px">
+      <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;margin-bottom:4px">
+        <div id="dataRepairBarFill" style="background:var(--accent);height:100%;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="dataRepairBarText" style="font-size:12px;color:var(--text-secondary)"></div>
+    </div>
+
+    <!-- Таблица полноты данных -->
+    <div id="dataCompletenessTable">
+      <span style="font-size:13px;color:var(--text-secondary)">Нажмите «Проверить полноту данных» для отображения статуса.</span>
+    </div>
+
+    <!-- Легенда -->
+    <div style="margin-top:10px;font-size:11px;color:var(--text-secondary)">
+      <span style="color:#4caf8a">●</span> Полные данные &nbsp;
+      <span style="color:#e6b800">●</span> Есть синтетические (требуется «Повторить для синтетических») &nbsp;
+      <span style="color:#e05c5c">●</span> Нет нормативов (требуется «Загрузить нормативы»)
+    </div>
+  </div>
+
+  <!-- ══════════════ FAQ ══════════════ -->
+  <div class="ref-section" style="margin-top:24px">
+    <div class="ref-section-title">❓ Часто задаваемые вопросы</div>
+
+    <!-- Вопрос 1: Когда загружаются данные по закрытым банкам -->
+    <div class="faq-block">
+      <div class="faq-q">Когда загружаются данные по закрытым банкам?</div>
+      <div class="faq-a">
+        <p>Список закрытых банков (метаданные: наименование, регион, дата отзыва лицензии) загружается
+        <strong>сразу после установки галочки «Включая закрытые банки»</strong> — обычно за 2–5 секунд.</p>
+        <p>Финансовые данные (Форма 101) по конкретному закрытому банку загружаются
+        <strong>в момент его выбора в поиске</strong> (прямой SOAP-запрос к ЦБ РФ) или заблаговременно
+        через кнопку <strong>«⟳ Прогреть кэш»</strong> с указанием нужного диапазона дат.</p>
+        <p>⚠ Важно: ЦБ РФ хранит форму 101 для закрытых банков только за период, пока банк работал.
+        Если выбранная дата позже даты отзыва лицензии — данные будут недоступны.</p>
+      </div>
+    </div>
+
+    <!-- Вопрос 2: Как загрузить данные за новый месяц -->
+    <div class="faq-block">
+      <div class="faq-q">Наступил новый отчётный период — как загрузить свежие данные?</div>
+      <div class="faq-a">
+        <p>ЦБ РФ публикует данные Формы 101 обычно <strong>с задержкой 30–40 дней</strong> после окончания месяца.</p>
+        <ol>
+          <li>Нажмите кнопку <strong>«⟳ Обновить данные»</strong> (в правом верхнем углу) — она инвалидирует
+          кэш текущего месяца и загрузит свежие данные с сайта ЦБ РФ.</li>
+          <li>Или используйте кнопку <strong>«⟳ Прогреть кэш»</strong>: установите диапазон дат так, чтобы
+          новый месяц попал в него, нажмите кнопку — данные для всех 305 банков загрузятся в фоне.</li>
+          <li>После загрузки обновите страницу браузера (<kbd>F5</kbd>) и выберите новый период в поле «До».</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Вопрос 3: Правила фаервола -->
+    <div class="faq-block">
+      <div class="faq-q">Какие интернет-ресурсы должен разрешать фаервол?</div>
+      <div class="faq-a">
+        <p>Дашборд обращается к следующим внешним ресурсам — все они должны быть доступны с сервера,
+        где запущен бэкенд <code>main.py</code>:</p>
+        <table class="faq-table">
+          <thead><tr><th>Домен / URL</th><th>Протокол</th><th>Для чего</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>www.cbr.ru</code></td>
+              <td>HTTPS :443</td>
+              <td>Список банков (HTML), SOAP Form 101 (<code>CreditInfoWebServ</code>), курсы валют, учётные цены металлов</td>
+            </tr>
+            <tr>
+              <td><code>cbr.ru</code></td>
+              <td>HTTPS :443</td>
+              <td>Редиректы с www (обычно перенаправляет на www.cbr.ru)</td>
+            </tr>
+            <tr>
+              <td><code>iss.moex.com</code></td>
+              <td>HTTPS :443</td>
+              <td>MOEX ISS API — индексы, акции, курс CNY/RUB, история торгов</td>
+            </tr>
+            <tr>
+              <td><code>www.moex.com</code></td>
+              <td>HTTPS :443</td>
+              <td>Резервный адрес MOEX (используется при редиректах)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="margin-top:8px">Конкретные URL-пути, используемые бэкендом:</p>
+        <ul class="faq-urls">
+          <li><code>https://www.cbr.ru/banking_sector/credit/FullCoList/</code> — список банков</li>
+          <li><code>https://www.cbr.ru/CreditInfoWebServ/CreditOrgInfo.asmx</code> — SOAP Form 101 / нормативы</li>
+          <li><code>https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx</code> — ключевая ставка, курсы ЦБ</li>
+          <li><code>https://www.cbr.ru/scripts/xml_metall.asp</code> — учётные цены на металлы</li>
+          <li><code>https://www.cbr.ru/scripts/XML_dynamic.asp</code> — история курсов USD/EUR</li>
+          <li><code>https://iss.moex.com/iss/history/engines/…</code> — история торгов MOEX</li>
+          <li><code>https://iss.moex.com/iss/engines/…</code> — текущие данные MOEX</li>
+        </ul>
+        <p>Весь трафик идёт через <strong>HTTPS (порт 443)</strong>. HTTP-соединения автоматически
+        перенаправляются на HTTPS.</p>
+      </div>
+    </div>
+
+    <!-- Вопрос 4: Почему данные синтетические -->
+    <div class="faq-block">
+      <div class="faq-q">Почему некоторые банки показывают данные с пометкой «демо»?</div>
+      <div class="faq-a">
+        <p>Если ЦБ РФ недоступен (фаервол, технические работы) или SOAP не возвращает данные для
+        конкретного банка — дашборд переходит в <strong>демо-режим</strong>: показываются расчётные
+        (синтетические) данные на основе детерминированной формулы.</p>
+        <p>Синтетические данные <em>не являются официальными</em> и помечены меткой ⚠ Демо в заголовке.
+        Для получения реальных данных убедитесь, что сервер имеет доступ к ресурсам ЦБ РФ (см. выше),
+        и нажмите «⟳ Обновить данные».</p>
+      </div>
+    </div>
+
+    <!-- Вопрос 5: Загрузка всегда долго или только первый раз -->
+    <div class="faq-block">
+      <div class="faq-q">Загрузка занимает долгое время — это всегда так?</div>
+      <div class="faq-a">
+        <p><strong>Долго — только первый раз</strong> для каждого месяца. После первой загрузки данные сохраняются
+        в JSON-кэш на диске и следующее открытие того же периода занимает <strong>менее 1 секунды</strong>.</p>
+        <p>Почему первый раз медленно: бэкенд делает отдельный SOAP-запрос к ЦБ РФ для каждого из 305 банков.
+        При 10 параллельных потоках и задержке сети ~1 сек/запрос загрузка одного месяца занимает около
+        <strong>30–60 секунд</strong>. Для временного ряда за 6 лет (72 месяца) — от 40 минут до 1–2 часов.</p>
+        <p><strong>Как ускорить:</strong> используйте кнопку <strong>«⟳ Прогреть кэш»</strong> — она загружает
+        все нужные месяцы в фоне параллельно (10 потоков). Это делается один раз. После прогрева все последующие
+        запросы — мгновенные.</p>
+        <p>Рекомендуемый порядок действий при первом запуске:</p>
+        <ol>
+          <li>Установите период «С» <kbd>01.01.2020</kbd> «По» <kbd>сегодня</kbd></li>
+          <li>Нажмите <strong>«⟳ Прогреть кэш»</strong> и оставьте на ночь (загрузка ~72 месяца × 305 банков)</li>
+          <li>Утром все данные будут в кэше — дашборд будет работать мгновенно</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Вопрос 6: Перенос на другой ПК -->
+    <div class="faq-block">
+      <div class="faq-q">Как перенести дашборд с загруженными данными на другой компьютер?</div>
+      <div class="faq-a">
+        <p>Все загруженные данные хранятся локально в папке <code>backend\data\</code>. Для переноса:</p>
+        <ol>
+          <li>Скопируйте <strong>всю папку</strong> <code>bank-dashboard\</code> на новый ПК (например, на флешку или по сети)</li>
+          <li>На новом ПК установите Python (3.10+) и зависимости:<br>
+            <code>pip install -r requirements.txt</code></li>
+          <li>Запустите сервер: <code>run.bat</code> или <code>cd backend &amp;&amp; python main.py</code></li>
+          <li>Откройте браузер: <code>http://localhost:8000/app</code></li>
+        </ol>
+        <p>Структура папок с данными:</p>
+        <table class="faq-table">
+          <thead><tr><th>Папка</th><th>Содержимое</th></tr></thead>
+          <tbody>
+            <tr><td><code>backend\data\cache\</code></td><td>Список банков, цены металлов (JSON)</td></tr>
+            <tr><td><code>backend\data\metrics\</code></td><td>Финансовые данные по месяцам — <code>metrics_v2_YYYY_MM.json</code></td></tr>
+          </tbody>
+        </table>
+        <p>Для обновления данных на новом ПК достаточно скопировать только свежие файлы из <code>backend\data\metrics\</code>,
+        например <code>metrics_v2_2026_03.json</code> — без повторного парсинга ЦБ РФ.</p>
+        <p>⚠ Интернет нужен только для загрузки <em>новых</em> месяцев, которых ещё нет в кэше.
+        Все уже загруженные данные работают <strong>полностью оффлайн</strong>.</p>
+      </div>
+    </div>
+
+    <!-- Вопрос 7: Итоги торгов — почему только одна цена для металлов -->
+    <div class="faq-block">
+      <div class="faq-q">Итоги торгов: почему для золота/серебра показана только одна цена?</div>
+      <div class="faq-a">
+        <p>Для металлов (Au, Ag, Pt, Pd) дашборд использует <strong>учётные цены ЦБ РФ</strong> — это
+        административная расчётная цена, устанавливаемая ЦБ один раз в день на основе лондонского фиксинга.
+        У неё нет биржевых данных OHLCV (открытие/максимум/минимум/объём).</p>
+        <p>Дашборд показывает для металлов:</p>
+        <ul>
+          <li>Цену покупки ЦБ и цену продажи ЦБ</li>
+          <li>Изменение (Δ) к предыдущему торговому дню в рублях и процентах</li>
+        </ul>
+        <p>Для юаня (CNY/RUB) доступны полные биржевые данные MOEX: открытие, максимум, минимум,
+        закрытие, средневзвешенный курс (WAP), объём торгов и количество сделок.</p>
+        <p>Для USD и EUR отображается официальный курс ЦБ РФ + изменение к предыдущему дню.</p>
+      </div>
+    </div>
+
+  </div>
+
+  </div><!-- /ref-container -->
+</section>
+
+<!-- ══════════════ ВКЛАДКА: SOAP-ЛОГ ══════════════ -->
+<section id="soapTab" class="ref-tab hidden">
+  <div style="max-width:1400px;margin:0 auto;padding:20px">
+    <h2 style="margin:0 0 16px;color:var(--accent)">🔍 SOAP-лог: сырые данные Ф101 из ЦБ</h2>
+    <p style="color:var(--text-2);font-size:13px;margin-bottom:16px">
+      Просмотр всех кодов Формы 101, которые приходят из SOAP API ЦБ РФ.
+      Показаны дебетовые и кредитовые остатки с расшифровкой названий счетов по Плану 809-П
+      и формулы расчёта каждой метрики дашборда.
+    </p>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+      <label style="font-size:13px;color:var(--text-2)">Рег. номер банка:</label>
+      <input id="soapRegNum" type="text" value="2733" style="width:100px;padding:6px 10px;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;color:var(--text-1);font-size:14px" placeholder="2733">
+      <label style="font-size:13px;color:var(--text-2)">Дата:</label>
+      <input id="soapDate" type="date" value="2026-02-01" style="padding:6px 10px;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;color:var(--text-1);font-size:14px">
+      <button onclick="loadSoapRaw()" style="padding:6px 16px;background:var(--accent);color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px">📡 Загрузить SOAP</button>
+      <span style="font-size:11px;color:var(--text-3)">Частые: 1481=Сбер, 1000=ВТБ, 354=ГПБ, 1326=Альфа, 2733=ПСБ Приморья</span>
+    </div>
+    <div id="soapOutput" style="background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:16px;min-height:200px">
+      <p style="color:var(--text-3)">Нажмите «Загрузить SOAP» для просмотра данных</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ ВКЛАДКА: КАЛЬКУЛЯТОРЫ ══════════════ -->
+<section id="calcTab" class="ref-tab hidden">
+  <div class="ref-container" style="max-width:1200px">
+    <h2 style="color:var(--accent);margin-bottom:16px">Финансовые калькуляторы</h2>
+
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button class="btn btn-primary calc-tab-btn active" data-calc="deposit" onclick="switchCalcTab('deposit')">Калькулятор вкладов</button>
+      <button class="btn btn-ghost calc-tab-btn" data-calc="credit" onclick="switchCalcTab('credit')">Калькулятор кредитов</button>
+    </div>
+
+    <!-- ─── КАЛЬКУЛЯТОР ВКЛАДОВ ─── -->
+    <div id="calcDeposit" class="calc-section">
+      <div class="card" style="padding:20px">
+        <h3 style="margin-bottom:16px;color:var(--text-1)">Калькулятор эффективной ставки по вкладам</h3>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <!-- Левая колонка — параметры -->
+          <div>
+            <div class="calc-field">
+              <label>Сумма вклада (₽)</label>
+              <input type="number" id="depAmount" value="1000000" min="1000" step="1000" class="calc-input" />
+            </div>
+
+            <div class="calc-field">
+              <label>Срок вклада (месяцев)</label>
+              <input type="number" id="depTerm" value="12" min="1" max="36" class="calc-input" />
+            </div>
+
+            <div class="calc-field">
+              <label>Капитализация процентов</label>
+              <select id="depCapitalization" class="calc-input">
+                <option value="0">Без капитализации (проценты на счёт)</option>
+                <option value="1" selected>Ежемесячная</option>
+                <option value="3">Ежеквартальная (раз в 3 мес.)</option>
+                <option value="6">Раз в полгода</option>
+                <option value="12">Ежегодная</option>
+              </select>
+            </div>
+
+            <div class="calc-field">
+              <label>Досрочное закрытие — ставка снижается до (%)</label>
+              <input type="number" id="depEarlyRate" value="0.01" min="0" max="100" step="0.01" class="calc-input" />
+              <small style="color:var(--text-3)">Ставка при досрочном расторжении (обычно 0.01%)</small>
+            </div>
+
+            <div class="calc-field">
+              <label>Можно закрыть без потери % за предыдущие периоды капитализации?</label>
+              <select id="depEarlyKeepPrev" class="calc-input">
+                <option value="0" selected>Нет — все проценты пересчитываются по ставке досрочного</option>
+                <option value="1">Да — начисленные за прошлые периоды сохраняются</option>
+              </select>
+            </div>
+
+            <!-- Ставки по периодам -->
+            <div class="calc-field">
+              <label>Процентные ставки по периодам</label>
+              <div id="depRateRows">
+                <div class="dep-rate-row" style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
+                  <span style="width:100px;font-size:12px;color:var(--text-2)">Мес. 1 — 12:</span>
+                  <input type="number" class="calc-input dep-rate-from" value="1" min="1" style="width:50px" />
+                  <span>—</span>
+                  <input type="number" class="calc-input dep-rate-to" value="12" min="1" style="width:50px" />
+                  <input type="number" class="calc-input dep-rate-val" value="18" min="0" max="100" step="0.1" style="width:70px" />
+                  <span style="font-size:12px">%</span>
+                  <button class="btn btn-ghost" onclick="removeDepRate(this)" style="padding:2px 6px;font-size:11px">✕</button>
+                </div>
+              </div>
+              <button class="btn btn-ghost" onclick="addDepRate()" style="font-size:11px;margin-top:4px">+ Добавить период</button>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn btn-primary" onclick="calcDeposit()" style="flex:1">Рассчитать</button>
+              <button class="btn btn-ghost" onclick="exportDepositExcel()" title="Скачать расчёт в CSV/Excel">📥 Excel</button>
+            </div>
+          </div>
+
+          <!-- Правая колонка — результат -->
+          <div>
+            <div id="depResult" class="calc-result" style="display:none">
+              <h4 style="color:var(--accent);margin-bottom:12px">Результат</h4>
+              <div id="depResultSummary"></div>
+              <h4 style="color:var(--accent);margin:16px 0 8px">Помесячная таблица</h4>
+              <div style="max-height:400px;overflow-y:auto">
+                <table class="calc-table" id="depResultTable">
+                  <thead>
+                    <tr>
+                      <th>Мес.</th>
+                      <th>Ставка %</th>
+                      <th>Начислено ₽</th>
+                      <th>Итого на счёте ₽</th>
+                      <th>Эфф. ставка при закрытии</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── КАЛЬКУЛЯТОР КРЕДИТОВ ─── -->
+    <div id="calcCredit" class="calc-section hidden">
+      <div class="card" style="padding:20px">
+        <h3 style="margin-bottom:16px;color:var(--text-1)">Калькулятор максимальной ставки по кредитам</h3>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <!-- Левая колонка — параметры -->
+          <div>
+            <div class="calc-field">
+              <label>Сумма кредита (₽)</label>
+              <input type="number" id="credAmount" value="1000000" min="1000" step="1000" class="calc-input" />
+            </div>
+
+            <div class="calc-field">
+              <label>Срок кредита (месяцев)</label>
+              <input type="number" id="credTerm" value="60" min="1" max="360" class="calc-input" />
+            </div>
+
+            <div class="calc-field">
+              <label>Процентная ставка (% годовых)</label>
+              <input type="number" id="credRate" value="24" min="0.1" max="100" step="0.1" class="calc-input" />
+            </div>
+
+            <div class="calc-field">
+              <label>Тип платежа</label>
+              <select id="credPayType" class="calc-input">
+                <option value="annuity" selected>Аннуитетный (равные платежи)</option>
+                <option value="diff">Дифференцированный (убывающий)</option>
+              </select>
+            </div>
+
+            <fieldset style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:8px">
+              <legend style="color:var(--accent);font-size:12px;padding:0 4px">Страховки</legend>
+
+              <div class="calc-field" style="margin-bottom:8px">
+                <label>Страховка жизни и здоровья</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="credInsLife" class="calc-input" style="width:auto">
+                    <option value="0" selected>Нет</option>
+                    <option value="1">Да</option>
+                  </select>
+                  <input type="number" id="credInsLifeRate" value="1.5" min="0" max="20" step="0.1" class="calc-input" style="width:80px" />
+                  <span style="font-size:12px">% от суммы/год</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
+                  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);cursor:pointer">
+                    <input type="checkbox" id="credInsLifeInBody" />
+                    Включить в тело кредита
+                  </label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);cursor:pointer">
+                    <input type="checkbox" id="credInsLifeNoRate" />
+                    Не влияет на ставку
+                  </label>
+                </div>
+                <div style="margin-top:2px">
+                  <small style="color:var(--text-3)">Влияние на ставку: без страховки +</small>
+                  <input type="number" id="credInsLifeImpact" value="3" min="0" max="20" step="0.1" class="calc-input" style="width:60px;display:inline" />
+                  <small style="color:var(--text-3)">п.п.</small>
+                </div>
+              </div>
+
+              <div class="calc-field" style="margin-bottom:8px">
+                <label>Страховка от потери работы</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="credInsJob" class="calc-input" style="width:auto">
+                    <option value="0" selected>Нет</option>
+                    <option value="1">Да</option>
+                  </select>
+                  <input type="number" id="credInsJobRate" value="0.5" min="0" max="10" step="0.1" class="calc-input" style="width:80px" />
+                  <span style="font-size:12px">% от суммы/год</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
+                  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);cursor:pointer">
+                    <input type="checkbox" id="credInsJobInBody" />
+                    Включить в тело кредита
+                  </label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);cursor:pointer">
+                    <input type="checkbox" id="credInsJobNoRate" />
+                    Не влияет на ставку
+                  </label>
+                </div>
+                <div style="margin-top:2px">
+                  <small style="color:var(--text-3)">Влияние: без страховки +</small>
+                  <input type="number" id="credInsJobImpact" value="1" min="0" max="10" step="0.1" class="calc-input" style="width:60px;display:inline" />
+                  <small style="color:var(--text-3)">п.п. к ставке</small>
+                </div>
+              </div>
+
+              <div class="calc-field">
+                <label>Страховка имущества (залога)</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select id="credInsProp" class="calc-input" style="width:auto">
+                    <option value="0" selected>Нет</option>
+                    <option value="1">Да</option>
+                  </select>
+                  <input type="number" id="credInsPropRate" value="0.3" min="0" max="10" step="0.1" class="calc-input" style="width:80px" />
+                  <span style="font-size:12px">% от суммы/год</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">
+                  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);cursor:pointer">
+                    <input type="checkbox" id="credInsPropInBody" />
+                    Включить в тело кредита
+                  </label>
+                  <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);cursor:pointer">
+                    <input type="checkbox" id="credInsPropNoRate" />
+                    Не влияет на ставку
+                  </label>
+                </div>
+                <div style="margin-top:2px">
+                  <small style="color:var(--text-3)">Влияние: без страховки +</small>
+                  <input type="number" id="credInsPropImpact" value="0.5" min="0" max="10" step="0.1" class="calc-input" style="width:60px;display:inline" />
+                  <small style="color:var(--text-3)">п.п. к ставке</small>
+                </div>
+              </div>
+            </fieldset>
+
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn btn-primary" onclick="calcCredit()" style="flex:1">Рассчитать</button>
+              <button class="btn btn-ghost" onclick="exportCreditExcel()" title="Скачать расчёт в CSV/Excel">📥 Excel</button>
+            </div>
+          </div>
+
+          <!-- Правая колонка — результат -->
+          <div>
+            <div id="credResult" class="calc-result" style="display:none">
+              <h4 style="color:var(--accent);margin-bottom:12px">Результат</h4>
+              <div id="credResultSummary"></div>
+              <h4 style="color:var(--accent);margin:16px 0 8px">График платежей</h4>
+              <div style="max-height:400px;overflow-y:auto">
+                <table class="calc-table" id="credResultTable">
+                  <thead>
+                    <tr>
+                      <th>Мес.</th>
+                      <th>Платёж ₽</th>
+                      <th>Основной долг ₽</th>
+                      <th>Проценты ₽</th>
+                      <th>Остаток ₽</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════ ВКЛАДКА: ИНСТРУКЦИЯ ══════════════ -->
+<section id="helpTab" class="ref-tab hidden">
+  <div class="ref-container">
+
+    <h2 class="ref-page-title">❓ Инструкция по работе с дашбордом</h2>
+
+    <!-- ──────── ВКЛАДКА АНАЛИТИКА ──────── -->
+    <div class="ref-section">
+      <div class="ref-section-title">📊 Вкладка «Аналитика» — банковский сектор РФ</div>
+      <p class="ref-note">Основная вкладка для сравнения банков, анализа динамики показателей и отраслевых групп.</p>
+
+      <table class="faq-table" style="margin-top:10px">
+        <thead><tr><th style="width:22%">Элемент</th><th>Что показывает и как менять</th></tr></thead>
+        <tbody>
+          <tr><td><strong>ПОКАЗАТЕЛЬ</strong></td><td>Выбор финансового показателя из Формы 101 ЦБ РФ. Примеры: Активы нетто, Кредитный портфель, Вклады физ. лиц, Ключевые нормативы (Н1/Н2/Н3). Показатель применяется ко всем графикам и таблице.</td></tr>
+          <tr><td><strong>+ СВОЙ ПОКАЗАТЕЛЬ</strong></td><td>Создание пользовательской формулы из кодов Формы 101. Например: <code>(423+426) / 40.1 * 100</code>. Сохраняется в браузере (localStorage).</td></tr>
+          <tr><td><strong>ПЕРИОД: Мес / Кв / Год</strong></td><td>Периодичность точек на графике. Мес = каждый месяц, Кв = каждый квартал (Q1/Q2/Q3/Q4), Год = январь каждого года. Влияет на скорость загрузки.</td></tr>
+          <tr><td><strong>НА ДАТУ</strong></td><td>Дата для отображения таблицы рейтинга и KPI-карточек (не влияет на период графика).</td></tr>
+          <tr><td><strong>С … ПО …</strong></td><td>Диапазон дат для графика динамики. Чем шире диапазон — тем больше данных загружается с ЦБ РФ (первый раз медленно, затем из кэша).</td></tr>
+          <tr><td><strong>ГРУППЫ</strong> (Примсоцбанк / ТОП-10 / ТОП-50 / Все банки)</td><td>Добавляет линию группы на график. «Примсоцбанк» — всегда отображается. ТОП-N считается по активам на выбранную дату. «Все банки» — среднее по сектору.</td></tr>
+          <tr><td><strong>РЕГИОН</strong> (ЦФО / СЗФО / ЮФО / СКФО / ПФО / УФО / СФО / ДФО)</td><td>Клик на округ — добавляет все банки округа на график для сравнения. Повторный клик — убирает. Цифра рядом = количество банков в округе.</td></tr>
+          <tr><td><strong>ДОБАВИТЬ (поиск банка)</strong></td><td>Поиск по названию или рег. номеру. Несколько банков можно добавить одновременно. Каждый показывается отдельной линией на графике.</td></tr>
+          <tr><td><strong>☑ Включая закрытые банки</strong></td><td>При включении в поиск появляются 969 закрытых банков с пометкой «закрыт». Данные по ним загружаются по SOAP ЦБ РФ на момент выбранного периода (если банк тогда работал).</td></tr>
+          <tr><td><strong>⟳ ПРОГРЕТЬ КЭШ</strong></td><td>Запускает фоновую загрузку Form 101 для ВСЕХ 305 банков за все месяцы указанного диапазона. Делается один раз — потом всё работает мгновенно. Прогресс отображается в полосе.</td></tr>
+          <tr><td><strong>KPI-карточки</strong> (вверху)</td><td>Показывают текущие значения для Примсоцбанка: активы, капитал, кредиты, вклады, прибыль, Н1. Клик на карточку — меняет основной показатель на графике.</td></tr>
+          <tr><td><strong>График (линии)</strong></td><td>Временной ряд выбранного показателя. Наведите мышь — всплывает точное значение. Кнопка «Bar» переключает в столбчатый вид.</td></tr>
+          <tr><td><strong>Таблица рейтинга</strong></td><td>Все банки на выбранную дату, отсортированные по выбранному показателю. Столбец Δ% = изменение за месяц. Клик на строку — добавляет банк на график.</td></tr>
+          <tr><td><strong>Вкладки Ф101</strong> (под графиком)</td><td>Детализация по счетам Формы 101 для выбранного банка. Показывает агрегированные коды (423+426 = «срочные вклады ФЛ»).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ──────── ВКЛАДКА СТАВКИ И КУРСЫ ──────── -->
+    <div class="ref-section" style="margin-top:18px">
+      <div class="ref-section-title">🏛 Вкладка «Ставки и курсы ЦБ»</div>
+      <p class="ref-note">Данные Банка России: ключевая ставка, официальные курсы валют, учётные цены металлов.</p>
+
+      <table class="faq-table" style="margin-top:10px">
+        <thead><tr><th style="width:22%">Блок</th><th>Описание</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Ключевая ставка ЦБ</strong></td><td>История ключевой ставки ЦБ РФ в виде ступенчатого графика. Источник: SOAP DailyInfoWebServ ЦБ РФ. Диапазон дат настраивается. Кнопка ↓Excel — выгрузка в таблицу.</td></tr>
+          <tr><td><strong>Курсы валют ЦБ (на сегодня)</strong></td><td>Официальные курсы ЦБ РФ: USD, EUR, CNY, GBP, JPY, CHF, TRY, BYR, KZT. Обновляются ежедневно. Источник: SOAP GetCursOnDateXML.</td></tr>
+          <tr><td><strong>График курса валюты</strong></td><td>Выбор валюты из выпадающего списка. CNY и USD/EUR/GBP показывают историческую динамику. Период настраивается.</td></tr>
+          <tr><td><strong>Металлы ЦБ РФ (руб./г)</strong></td><td>Учётные цены Банка России на золото (Au), серебро (Ag), платину (Pt), палладий (Pd). Источник: https://www.cbr.ru/scripts/xml_metall.asp. <strong>Это административные расчётные цены ЦБ</strong>, устанавливаются раз в день на основе лондонского фиксинга.</td></tr>
+          <tr><td><strong>График металлов (раздел ниже)</strong></td><td>Динамика учётных цен ЦБ на выбранные металлы. Галочками выбираются Au/Ag/Pt/Pd. Логарифмическая шкала Y (из-за большого разброса цен). Диапазон дат настраивается.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ──────── ВКЛАДКА БИРЖА MOEX ──────── -->
+    <div class="ref-section" style="margin-top:18px">
+      <div class="ref-section-title">📈 Вкладка «Биржа MOEX»</div>
+      <p class="ref-note">Биржевые данные с Московской биржи через MOEX ISS API. Данные обновляются с задержкой T+1.</p>
+
+      <table class="faq-table" style="margin-top:10px">
+        <thead><tr><th style="width:22%">Блок</th><th>Описание</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Индексы MOEX</strong> (IMOEX и др.)</td><td>Биржевые индексы: IMOEX (Индекс МосБиржи), RTSI (РТС), MOEXBC (Банки и Финансы), MOEXOG (Нефть и Газ) и др. Источник: MOEX ISS history. Диапазон дат настраивается. ↓Excel — экспорт.</td></tr>
+          <tr><td><strong>График акций</strong></td><td>Введите тикер акции (SBER, VTBR, TCSG, GAZP, …) и нажмите загрузить. Данные — дневные OHLCV с MOEX. Отображается цена закрытия.</td></tr>
+          <tr><td><strong>Металлы — учётные цены ЦБ</strong></td><td>Те же данные что и на вкладке «Ставки и курсы ЦБ» — учётные цены ЦБ РФ на Au/Ag/Pt/Pd. Показаны здесь для сравнения с биржевым рынком. <em>Источник одинаков: CBR xml_metall.asp.</em></td></tr>
+          <tr><td><strong>Юань CNY (MOEX)</strong></td><td>Биржевой курс CNY/RUB с Московской биржи (инструмент CNYRUB_TOM, доска CETS). Включает OHLCV и объём торгов. <strong>Отличие от ЦБ</strong>: это рыночная цена биржевых торгов, а не административный курс ЦБ РФ.</td></tr>
+          <tr><td><strong>Итоги торгов</strong></td><td>Сводная карточка за выбранную дату по инструменту. Доступные инструменты:<br>
+            • <strong>Юань CNY (MOEX)</strong> — полный OHLCV, объём, кол-во сделок<br>
+            • <strong>USD/EUR (ЦБ РФ)</strong> — официальный курс + изменение к предыдущему дню<br>
+            • <strong>GLDRUB_TOM (MOEX)</strong> — биржевое золото, полный OHLCV<br>
+            • <strong>SLVRUB_TOM (MOEX)</strong> — биржевое серебро, полный OHLCV<br>
+            • <strong>Au/Ag/Pt/Pd (ЦБ РФ)</strong> — учётные цены ЦБ, цена покупки/продажи + изменение за день</td></tr>
+        </tbody>
+      </table>
+
+      <div class="ref-note" style="margin-top:10px">
+        <strong>Чем отличаются металлы на MOEX-вкладке и на вкладке «Ставки и курсы ЦБ»?</strong><br>
+        Данные одинаковые — оба графика используют учётные цены ЦБ РФ (<code>xml_metall.asp</code>).
+        Разница в контексте: на вкладке ЦБ металлы стоят рядом с ключевой ставкой и курсами (денежно-кредитная политика),
+        на вкладке MOEX — рядом с биржевыми индексами и акциями (рыночный контекст).
+        Для биржевого золота с OHLCV выберите <strong>GLDRUB_TOM</strong> в «Итогах торгов».
+      </div>
+    </div>
+
+    <!-- ──────── КНОПКИ В ШАПКЕ ──────── -->
+    <div class="ref-section" style="margin-top:18px">
+      <div class="ref-section-title">🔘 Кнопки в шапке</div>
+      <table class="faq-table" style="margin-top:10px">
+        <thead><tr><th style="width:22%">Кнопка</th><th>Действие</th></tr></thead>
+        <tbody>
+          <tr><td><strong>↓ CSV</strong></td><td>Экспортирует текущую таблицу рейтинга в CSV-файл. Скачивается в папку «Загрузки» браузера.</td></tr>
+          <tr><td><strong>🗑 Сброс кэша</strong></td><td>Удаляет кэш текущего месяца на сервере и запрашивает данные заново с ЦБ РФ. Используйте если данные устарели или некорректны.</td></tr>
+          <tr><td><strong>⟳ Обновить данные</strong></td><td>Инвалидирует кэш и загружает свежие данные за текущий/последний отчётный период. Полезно после выхода новой отчётности ЦБ (обычно через 30–40 дней после конца месяца).</td></tr>
+          <tr><td><strong>● Данные на ГГГГ-ММ-ДД</strong> (статус)</td><td>Зелёный = данные загружены из ЦБ РФ. Жёлтый = оффлайн-режим (кэш есть, интернета нет). Красный/демо = нет ни кэша ни интернета.</td></tr>
+          <tr><td><strong>304 банков в базе</strong></td><td>Счётчик активных банков в текущем списке ЦБ РФ. Должен быть ~305. Если меньше — обновите список банков (⟳ Обновить данные).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ──────── СПРАВОЧНИК → Менеджер данных ──────── -->
+    <div class="ref-section" style="margin-top:18px">
+      <div class="ref-section-title">🗄 Менеджер данных (Справочник → вверху)</div>
+      <table class="faq-table" style="margin-top:10px">
+        <thead><tr><th style="width:22%">Кнопка</th><th>Что делает</th></tr></thead>
+        <tbody>
+          <tr><td><strong>🔍 Проверить полноту данных</strong></td><td>Сканирует все кэш-файлы и показывает таблицу: сколько банков с реальными данными, сколько с синтетическими (demo), сколько без нормативов. Зелёный ✅ = всё загружено.</td></tr>
+          <tr><td><strong>📋 Загрузить нормативы</strong></td><td>Загружает нормативы Н1/Н2/Н3/Н4 для банков у которых они отсутствуют (пропускаются при массовой загрузке для скорости). Укажите период и запустите.</td></tr>
+          <tr><td><strong>🔄 Повторить для синтетических</strong></td><td>Повторяет SOAP-запрос для банков с demo=True с увеличенным таймаутом (25 сек). Используйте если при первой загрузке некоторые банки не успели ответить.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ══════════════ FAQ (перенесён из Справочника) ══════════════ -->
+    <div class="ref-section" style="margin-top:24px">
+      <div class="ref-section-title">❓ Часто задаваемые вопросы</div>
+
+      <div class="faq-block">
+        <div class="faq-q">Загрузка занимает долгое время — это всегда так?</div>
+        <div class="faq-a">
+          <p><strong>Долго — только первый раз</strong> для каждого месяца. После первой загрузки данные сохраняются
+          в JSON-кэш на диске и следующее открытие того же периода занимает <strong>менее 1 секунды</strong>.</p>
+          <p>Почему первый раз медленно: бэкенд делает отдельный SOAP-запрос к ЦБ РФ для каждого из 305 банков.
+          При 20 параллельных потоках загрузка одного месяца занимает около <strong>2–4 минут</strong>.
+          Для временного ряда за 6 лет (72 месяца) — от 2 до 5 часов.</p>
+          <p><strong>Как ускорить:</strong> кнопка <strong>«⟳ Прогреть кэш»</strong> — один раз, потом всё мгновенно.</p>
+          <ol>
+            <li>Установите период «С» <kbd>01.01.2020</kbd> «По» <kbd>сегодня</kbd></li>
+            <li>Нажмите <strong>«⟳ Прогреть кэш»</strong> и оставьте на ночь</li>
+            <li>Утром все данные в кэше — дашборд работает мгновенно</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="faq-block">
+        <div class="faq-q">Когда загружаются данные по закрытым банкам?</div>
+        <div class="faq-a">
+          <p>Список закрытых банков (метаданные: наименование, регион, дата отзыва лицензии) загружается
+          <strong>сразу после установки галочки «Включая закрытые банки»</strong> — обычно за 2–5 секунд.</p>
+          <p>Финансовые данные (Форма 101) по конкретному закрытому банку загружаются
+          <strong>в момент его выбора в поиске</strong> или заблаговременно через кнопку <strong>«⟳ Прогреть кэш»</strong>.</p>
+          <p>⚠ ЦБ РФ хранит Форму 101 для закрытых банков только за период, пока банк работал.</p>
+        </div>
+      </div>
+
+      <div class="faq-block">
+        <div class="faq-q">Наступил новый отчётный период — как загрузить свежие данные?</div>
+        <div class="faq-a">
+          <p>ЦБ РФ публикует данные Формы 101 обычно <strong>с задержкой 30–40 дней</strong> после окончания месяца.</p>
+          <ol>
+            <li>Нажмите <strong>«⟳ Обновить данные»</strong> — инвалидирует кэш текущего месяца.</li>
+            <li>Или <strong>«⟳ Прогреть кэш»</strong> с новым месяцем в диапазоне.</li>
+            <li>После загрузки обновите страницу (<kbd>F5</kbd>) и выберите новый период в поле «До».</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="faq-block">
+        <div class="faq-q">Как перенести дашборд с загруженными данными на другой компьютер?</div>
+        <div class="faq-a">
+          <ol>
+            <li>Скопируйте <strong>всю папку</strong> <code>bank-dashboard\</code> на новый ПК</li>
+            <li>Установите Python 3.10+, затем: <code>pip install -r requirements.txt</code></li>
+            <li>Запустите: <code>run.bat</code></li>
+            <li>Откройте: <code>http://localhost:8000/app</code></li>
+          </ol>
+          <p>Все данные в <code>backend\data\metrics\</code> и <code>backend\data\cache\</code>.
+          Для обновления — скидывайте только новые файлы <code>metrics_v2_YYYY_MM.json</code>.</p>
+          <p>⚠ Интернет нужен только для загрузки <em>новых</em> месяцев. Все загруженные данные работают <strong>оффлайн</strong>.</p>
+        </div>
+      </div>
+
+      <div class="faq-block">
+        <div class="faq-q">Какие интернет-ресурсы должен разрешать фаервол?</div>
+        <div class="faq-a">
+          <table class="faq-table">
+            <thead><tr><th>Домен</th><th>Протокол</th><th>Для чего</th></tr></thead>
+            <tbody>
+              <tr><td><code>www.cbr.ru</code></td><td>HTTPS :443</td><td>Список банков (HTML), SOAP Form 101, курсы валют, цены металлов</td></tr>
+              <tr><td><code>cbr.ru</code></td><td>HTTPS :443</td><td>Редиректы с www</td></tr>
+              <tr><td><code>iss.moex.com</code></td><td>HTTPS :443</td><td>MOEX ISS API — индексы, акции, CNY/RUB, история торгов</td></tr>
+              <tr><td><code>www.moex.com</code></td><td>HTTPS :443</td><td>Резервный адрес MOEX</td></tr>
+            </tbody>
+          </table>
+          <ul class="faq-urls" style="margin-top:8px">
+            <li><code>https://www.cbr.ru/banking_sector/credit/FullCoList/</code> — список банков</li>
+            <li><code>https://www.cbr.ru/CreditInfoWebServ/CreditOrgInfo.asmx</code> — SOAP Form 101 / нормативы</li>
+            <li><code>https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx</code> — ключевая ставка, курсы ЦБ</li>
+            <li><code>https://www.cbr.ru/scripts/xml_metall.asp</code> — учётные цены на металлы</li>
+            <li><code>https://www.cbr.ru/scripts/XML_dynamic.asp</code> — история курсов USD/EUR</li>
+            <li><code>https://iss.moex.com/iss/history/engines/…</code> — история торгов MOEX</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="faq-block">
+        <div class="faq-q">Почему некоторые банки показывают данные с пометкой «демо»?</div>
+        <div class="faq-a">
+          <p>Если ЦБ РФ недоступен или SOAP не возвращает данные — дашборд переходит в <strong>демо-режим</strong>: показываются расчётные (синтетические) данные.</p>
+          <p>Синтетические данные <em>не являются официальными</em>. Для их замены на реальные — перейдите в <strong>Справочник → Менеджер данных → «Повторить для синтетических»</strong>.</p>
+        </div>
+      </div>
+
+      <div class="faq-block">
+        <div class="faq-q">Чем отличается учётная цена металлов ЦБ от биржевой цены MOEX?</div>
+        <div class="faq-a">
+          <p><strong>Учётная цена ЦБ РФ</strong> (Au/Ag/Pt/Pd на вкладке ЦБ и MOEX) — это административная расчётная цена,
+          устанавливаемая Банком России один раз в день на основе лондонского фиксинга. Используется для бухгалтерского
+          учёта банков. Нет биржевого OHLCV (нет максимума/минимума/объёма).</p>
+          <p><strong>Биржевая цена MOEX</strong> (GLDRUB_TOM, SLVRUB_TOM в «Итогах торгов») — реальные торги на
+          Московской бирже. Включает open/high/low/close, объём торгов, количество сделок. Может отличаться от
+          учётной цены ЦБ на 0.1–2%.</p>
+        </div>
+      </div>
+
+    </div><!-- /ref-section FAQ -->
+
+  </div><!-- /ref-container -->
+</section>
+
+  <!-- ══════════════ FOOTER ══════════════ -->
+  <footer class="footer">
+    <span class="footer-label">Источники:</span>
+    <span class="source-tag">ЦБ РФ — Форма 101</span>
+    <span class="source-tag">ЦБ РФ — Форма 102</span>
+    <span class="source-tag">ЦБ РФ — Нормативы</span>
+    <span class="source-tag">ЦБ РФ — OpenData CSV</span>
+    <span class="source-tag">MOEX ISS API</span>
+    <span id="demoWarning" class="demo-warning" style="display:none">
+      ⚠ Демо-режим: ЦБ РФ недоступен, показаны расчётные данные
+    </span>
+    <span class="footer-right" id="footerTime"></span>
+  </footer>
+
+</div>
+
+<!-- Toast контейнер -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══════════════ МОДАЛЬНОЕ ОКНО — ПОЛЬЗОВАТЕЛЬСКИЙ ПОКАЗАТЕЛЬ ══════════════ -->
+<div class="modal-overlay hidden" id="customMetricModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Создать пользовательский показатель</span>
+      <button class="modal-close" id="customMetricClose">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Название -->
+      <div class="modal-field">
+        <label class="modal-label">Название *</label>
+        <input type="text" id="cmName" class="modal-inp" placeholder="Напр.: Активы без ЦБ" maxlength="60" />
+      </div>
+
+      <!-- Активы / Пассивы -->
+      <div class="modal-field">
+        <label class="modal-label">Тип счетов</label>
+        <div class="cm-ap-tabs">
+          <button class="cm-ap-tab active" data-ap="1">Активные (Дебет)</button>
+          <button class="cm-ap-tab" data-ap="2">Пассивные (Кредит)</button>
+          <button class="cm-ap-tab" data-ap="both">Активные + Пассивные</button>
+        </div>
+      </div>
+
+      <!-- Поиск и добавление кодов -->
+      <div class="modal-field">
+        <label class="modal-label">Балансовые позиции Ф101</label>
+        <div class="cm-code-search-wrap">
+          <input type="text" id="cmCodeInput" class="modal-inp"
+                 placeholder="Введите код счёта (напр. 45.2, 30102, 458)..." />
+          <input type="text" id="cmCodeLabel" class="modal-inp"
+                 placeholder="Название позиции (необязательно)" />
+          <div class="cm-sign-row">
+            <label class="cm-sign-label">
+              <input type="radio" name="cmSign" value="1" checked /> + прибавить
+            </label>
+            <label class="cm-sign-label">
+              <input type="radio" name="cmSign" value="-1" /> − вычесть
+            </label>
+            <button class="btn btn-ghost" id="cmAddCode" style="font-size:11px;padding:3px 10px">
+              ＋ Добавить
+            </button>
+          </div>
+        </div>
+        <div id="cmCodesList" class="cm-codes-list"></div>
+        <div style="font-size:10px;color:var(--text-3);margin-top:4px">
+          Коды из Плана счетов 809-П. Агрегаты: 42.2, 45.0, 20.0, ITGAP и т.д.
+          Знак «+» — слагаемое, «−» — вычитаемое.
+        </div>
+      </div>
+
+      <!-- Единица измерения -->
+      <div class="modal-field" style="flex-direction:row;align-items:center;gap:12px">
+        <label class="modal-label">Единица</label>
+        <select id="cmUnit" class="modal-inp" style="width:120px">
+          <option value="млрд ₽">млрд ₽</option>
+          <option value="%">%</option>
+          <option value="тыс. ₽">тыс. ₽</option>
+        </select>
+        <label class="modal-label" style="margin-left:16px">Источник</label>
+        <input type="text" id="cmSource" class="modal-inp" style="width:160px"
+               placeholder="напр. Ф101" value="Ф101 (пользов.)" />
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <div id="cmError" class="cm-error hidden"></div>
+      <button class="btn btn-ghost" id="customMetricCancel">Отмена</button>
+      <button class="btn btn-primary" id="customMetricSave">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SETTINGS MODAL ══════════════ -->
+<div id="settingsModal" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">⚙ Настройки подключения</span>
+      <button class="modal-close" id="btnSettingsClose">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Режим подключения -->
+      <div class="settings-section">
+        <div class="settings-section-title">🌐 Режим подключения</div>
+        <label class="settings-radio">
+          <input type="radio" name="connMode" value="auto" id="connAuto" checked>
+          <span><strong>Автоматически</strong> — системные настройки (VPN и прокси ОС работают)</span>
+        </label>
+        <label class="settings-radio">
+          <input type="radio" name="connMode" value="direct" id="connDirect">
+          <span><strong>Прямое подключение</strong> — игнорировать VPN и системный прокси</span>
+        </label>
+        <label class="settings-radio">
+          <input type="radio" name="connMode" value="proxy" id="connProxy">
+          <span><strong>Через прокси</strong> — ввести данные прокси</span>
+        </label>
+
+        <!-- Поля прокси — аналог таблицы у провайдера -->
+        <div id="proxyUrlRow" class="hidden" style="margin-top:14px">
+          <div class="proxy-fields-grid">
+
+            <!-- Строка 1: IP:PORT -->
+            <div class="proxy-field-row">
+              <span class="proxy-field-label">Прокси IP:PORT</span>
+              <input type="text" id="proxyHost" class="settings-input proxy-field-host"
+                     placeholder="23.229.42.231:9358" autocomplete="off" spellcheck="false" />
+            </div>
+
+            <!-- Строка 2: Логин -->
+            <div class="proxy-field-row">
+              <span class="proxy-field-label">Логин</span>
+              <input type="text" id="proxyLogin" class="settings-input proxy-field-login"
+                     placeholder="CYwDE8" autocomplete="off" spellcheck="false" />
+            </div>
+
+            <!-- Строка 3: Пароль -->
+            <div class="proxy-field-row">
+              <span class="proxy-field-label">Пароль</span>
+              <div style="display:flex;gap:6px;flex:1">
+                <input type="password" id="proxyPass" class="settings-input"
+                       style="flex:1" placeholder="8MtaE2" autocomplete="new-password" />
+                <button type="button" id="proxyPassToggle"
+                        class="proxy-eye-btn" title="Показать/скрыть пароль">👁</button>
+              </div>
+            </div>
+
+            <!-- Строка 4: Тип -->
+            <div class="proxy-field-row">
+              <span class="proxy-field-label">Тип</span>
+              <select id="proxyType" class="settings-input proxy-field-type">
+                <option value="socks5">SOCKS5</option>
+                <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
+              </select>
+            </div>
+
+          </div>
+          <div class="settings-hint" style="margin-top:8px">
+            💡 Скопируйте данные из таблицы вашего провайдера прокси
+          </div>
+        </div>
+      </div>
+
+      <!-- Таймаут -->
+      <div class="settings-section" style="margin-top:16px">
+        <div class="settings-section-title">⏱ Таймаут запросов</div>
+        <div class="settings-field">
+          <input type="number" id="timeoutInput" class="settings-input"
+                 min="5" max="120" value="15" style="width:80px" />
+          <span style="color:var(--text-3);font-size:12px;margin-left:8px">секунд (5–120)</span>
+        </div>
+        <div class="settings-hint">Увеличьте если ЦБ РФ отвечает медленно. Уменьшите если соединение быстрое.</div>
+      </div>
+
+      <!-- Статус -->
+      <div id="settingsStatus" style="margin-top:12px;font-size:12px;color:var(--text-3)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btnSettingsCancel">Отмена</button>
+      <button class="btn btn-primary" id="btnSettingsSave">💾 Сохранить и применить</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

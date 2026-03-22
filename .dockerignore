@@ -1,0 +1,20 @@
+__pycache__
+*.pyc
+.env
+.git
+*.log
+backend/nul
+backend/test_*
+backend/probe_*
+backend/server*.log
+backend/data/metrics/*.json
+Новая папка/
+*.xlsx
+*.docx
+analyze_gpb.py
+compare_all.py
+verify_cbr.py
+soap_*.json
+gpb_soap.json
+run_log.txt
+backendserver.log

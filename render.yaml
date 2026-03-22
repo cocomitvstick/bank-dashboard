@@ -1,0 +1,11 @@
+# Render.com Blueprint — бесплатный деплой
+services:
+  - type: web
+    name: bank-dashboard
+    runtime: docker
+    plan: free
+    envVars:
+      - key: PORT
+        value: "10000"
+    healthCheckPath: /
+    autoDeploy: true

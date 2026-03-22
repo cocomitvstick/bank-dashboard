@@ -2134,7 +2134,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=10000)
     args = parser.parse_args()
     logger.info("Запуск uvicorn на %s:%s ...", args.host, args.port)
     try:

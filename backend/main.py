@@ -1,7 +1,7 @@
 """
 FastAPI сервер — аналитический дашборд Примсоцбанка.
 Запуск: python main.py
-Документация API: http://localhost:8080/docs
+Документация API: http://localhost:8000/docs
 """
 # ---------------------------------------------------------------------------
 # Логирование — ДО любых импортов, чтобы поймать ошибки импорта
@@ -2126,21 +2126,23 @@ def force_refresh(date: str = Query(None)):
 
 
 
+
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    import os
-
-    port = int(os.environ.get("PORT", 8000))
-
-    logger.info("Запуск uvicorn на 0.0.0.0:%s ...", port)
-
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=8000)
+    args = parser.parse_args()
+    logger.info("Запуск uvicorn на %s:%s ...", args.host, args.port)
     try:
         uvicorn.run(
             app,
-            host="0.0.0.0",   # ОБЯЗАТЕЛЬНО для Railway
-            port=port,
+            host=args.host,
+            port=args.port,
+            reload=False,
             log_level="info",
         )
     except Exception as e:

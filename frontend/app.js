@@ -980,10 +980,10 @@ const state = {
   metric:       'assets',
   period:       'month',
   date:         null,        // null = авто (последний доступный)
-  dateFrom:     (() => { const d = new Date(); d.setMonth(d.getMonth() - 6); return d.toISOString().slice(0,10); })(),
+  dateFrom:     '2025-01-01',
   dateTo:       null,        // null = авто
   kpiBank:      { reg_num: '2733', name: 'Примсоцбанк' },
-  activeGroups: new Set(['primsocbank', 'top10', 'top50']),
+  activeGroups: new Set(['primsocbank']),
   activeRegion:     null,        // null = все; string = регион (для чипа, обратная совместимость)
   activeRegions: new Set(),      // 'ЦФО', 'ПФО' — округа для агрегации
   groupAggMode: 'sum',           // 'sum' | 'mean' — агрегация для ТОП-групп и регионов

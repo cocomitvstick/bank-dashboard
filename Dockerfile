@@ -28,4 +28,4 @@ ENV PORT=8000
 EXPOSE ${PORT}
 
 # Запуск
-CMD ["sh", "-c", "cd /app/backend && python main.py --port ${PORT}"]
+CMD ["sh", "-c", "cd /app/backend && python main.py"]

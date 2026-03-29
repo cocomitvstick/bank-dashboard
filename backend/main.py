@@ -2131,18 +2131,14 @@ def force_refresh(date: str = Query(None)):
 # Точка входа
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    logger.info("Запуск uvicorn на %s:%s ...", args.host, args.port)
+    import os as _os
+    _port = int(_os.environ.get("PORT", 8000))
+    logger.info("Запуск uvicorn на 0.0.0.0:%s ...", _port)
     try:
         uvicorn.run(
             app,
-            host=args.host,
-            port=args.port,
-            reload=False,
+            host="0.0.0.0",   # ОБЯЗАТЕЛЬНО для Railway/Render
+            port=_port,
             log_level="info",
         )
     except Exception as e:

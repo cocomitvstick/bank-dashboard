@@ -22,10 +22,8 @@ COPY frontend/ ./frontend/
 # Создаём директорию для кэша данных
 RUN mkdir -p /app/backend/data/metrics
 
-# Порт (Render/Railway используют переменную PORT)
-ENV PORT=8000
+# Railway и другие платформы автоматически задают PORT через переменную окружения
+EXPOSE 8000
 
-EXPOSE ${PORT}
-
-# Запуск
-CMD ["sh", "-c", "cd /app/backend && python main.py --port ${PORT}"]
+# Запуск — порт читается из переменной окружения PORT (по умолчанию 8000)
+CMD ["python", "/app/backend/main.py"]

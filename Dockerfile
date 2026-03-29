@@ -25,5 +25,5 @@ RUN mkdir -p /app/backend/data/metrics
 # Railway и другие платформы автоматически задают PORT через переменную окружения
 EXPOSE 8000
 
-# Запуск — порт читается из переменной окружения PORT (по умолчанию 8000)
-CMD ["python", "/app/backend/main.py"]
+# Запуск из директории бэкенда — важно для корректной работы относительных путей
+CMD ["sh", "-c", "cd /app/backend && python main.py"]

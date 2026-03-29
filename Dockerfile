@@ -14,7 +14,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Сброс кэша Docker при каждом деплое
-ARG CACHEBUST=1
+ARG CACHEBUST=20260329
 RUN echo "Cache bust: $CACHEBUST"
 
 # Копируем бэкенд

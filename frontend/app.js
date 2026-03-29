@@ -8,7 +8,9 @@
 // ─────────────────────────────────────────────────────────
 // Конфигурация
 // ─────────────────────────────────────────────────────────
-const API = 'http://localhost:8000/api';
+const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8000/api'
+  : '/api';
 const PSB_REG = '2733';
 const PSB_NAME = 'Примсоцбанк';
 const DEBOUNCE_MS = 350;

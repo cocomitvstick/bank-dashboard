@@ -14,7 +14,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Сброс кэша Docker при каждом деплое
-ARG CACHEBUST=20260329
+ARG CACHEBUST=20260330
 RUN echo "Cache bust: $CACHEBUST"
 
 # Копируем бэкенд
@@ -26,10 +26,11 @@ COPY frontend/ ./frontend/
 # Создаём директорию для кэша данных
 RUN mkdir -p /app/backend/data/metrics
 
-# Порт (Railway/Render используют переменную PORT)
+# Отключаем буферизацию Python чтобы видеть логи сразу
+ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-EXPOSE ${PORT}
+EXPOSE 8000
 
-# Запуск
-CMD ["sh", "-c", "cd /app/backend && python main.py"]
+# Запуск с диагностическим выводом
+CMD ["sh", "-c", "echo '=== CONTAINER START ===' && echo PORT=$PORT && cd /app/backend && echo '=== RUNNING PYTHON ===' && python main.py 2>&1"]

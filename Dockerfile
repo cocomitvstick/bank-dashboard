@@ -14,7 +14,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Сброс кэша Docker при каждом деплое
-ARG CACHEBUST=20260330
+ARG CACHEBUST=20260330b
 RUN echo "Cache bust: $CACHEBUST"
 
 # Копируем бэкенд
@@ -33,4 +33,4 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Запуск с диагностическим выводом
-CMD ["sh", "-c", "echo '=== CONTAINER START ===' && echo PORT=$PORT && cd /app/backend && echo '=== RUNNING PYTHON ===' && python main.py 2>&1"]
+CMD ["sh", "-c", "python -m http.server $PORT"]
